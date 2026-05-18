@@ -151,6 +151,11 @@ class CanvasRacingHUD {
             }
         }
 
+        // Log HUD injection for debugging
+        console.log(`Chocobo Racing | HUD opened for token ${token.id}`);
+        console.log(`Chocobo Racing | HUD element found: ${this.element.length > 0}`);
+        console.log(`Chocobo Racing | Active token: ${this.activeToken ? this.activeToken.id : 'null'}`);
+        
         this.updatePosition();
 
         // Bind events
@@ -199,39 +204,61 @@ class CanvasRacingHUD {
     }
 
     static updatePosition() {
-        if (!this.activeToken || !this.element) return;
-        
-        // Actions go near the token
-        const actionsHUD = this.element.find('.chocobo-canvas-actions');
-        
-        // Use native Foundry transform for Token
-        const tokenPoint = {
-            x: this.activeToken.document.x + this.activeToken.w, 
-            y: this.activeToken.document.y
-        };
-        const tokenScreen = canvas.clientCoordinatesFromCanvas(tokenPoint);
-        actionsHUD.css({ left: tokenScreen.x + 20, top: tokenScreen.y });
-
-        // Compass goes over the ghost
-        const velocity = RacingData.getVelocity(this.activeToken.document);
-        const sizeX = canvas.grid.sizeX || canvas.grid.size;
-        const sizeY = canvas.grid.sizeY || canvas.grid.size;
-        
-        // Include preview adjustment if any
-        let dx = velocity.x;
-        let dy = velocity.y;
-        if (this.activeToken._previewAdjustment) {
-            dx += this.activeToken._previewAdjustment.dx;
-            dy += this.activeToken._previewAdjustment.dy;
+        if (!this.activeToken || !this.element) {
+            console.warn('Chocobo Racing | updatePosition called with missing activeToken or element');
+            return;
         }
+        
+        if (!canvas || !canvas.ready) {
+            console.warn('Chocobo Racing | Canvas not ready, skipping position update');
+            return;
+        }
+        
+        try {
+            // Actions go near the token
+            const actionsHUD = this.element.find('.chocobo-canvas-actions');
+            
+            // Use native Foundry transform for Token
+            const tokenPoint = {
+                x: this.activeToken.document.x + this.activeToken.w, 
+                y: this.activeToken.document.y
+            };
+            const tokenScreen = canvas.clientCoordinatesFromCanvas(tokenPoint);
+            if (!tokenScreen) {
+                console.warn('Chocobo Racing | Failed to convert token coordinates');
+                return;
+            }
+            actionsHUD.css({ left: tokenScreen.x + 20, top: tokenScreen.y });
+            console.log(`Chocobo Racing | Actions positioned at: ${tokenScreen.x + 20}, ${tokenScreen.y}`);
 
-        const ghostX = this.activeToken.document.x + (dx * sizeX) + (this.activeToken.w / 2);
-        const ghostY = this.activeToken.document.y + (dy * sizeY) + (this.activeToken.h / 2);
-        
-        const ghostScreen = canvas.clientCoordinatesFromCanvas({x: ghostX, y: ghostY});
-        
-        const compassHUD = this.element.find('.chocobo-canvas-compass');
-        compassHUD.css({ left: ghostScreen.x, top: ghostScreen.y });
+            // Compass goes over the ghost
+            const velocity = RacingData.getVelocity(this.activeToken.document);
+            const sizeX = canvas.grid.sizeX || canvas.grid.size;
+            const sizeY = canvas.grid.sizeY || canvas.grid.size;
+            
+            // Include preview adjustment if any
+            let dx = velocity.x;
+            let dy = velocity.y;
+            if (this.activeToken._previewAdjustment) {
+                dx += this.activeToken._previewAdjustment.dx;
+                dy += this.activeToken._previewAdjustment.dy;
+            }
+
+            const ghostX = this.activeToken.document.x + (dx * sizeX) + (this.activeToken.w / 2);
+            const ghostY = this.activeToken.document.y + (dy * sizeY) + (this.activeToken.h / 2);
+            
+            const ghostScreen = canvas.clientCoordinatesFromCanvas({x: ghostX, y: ghostY});
+            if (!ghostScreen) {
+                console.warn('Chocobo Racing | Failed to convert ghost coordinates');
+                return;
+            }
+            
+            const compassHUD = this.element.find('.chocobo-canvas-compass');
+            compassHUD.css({ left: ghostScreen.x, top: ghostScreen.y });
+            console.log(`Chocobo Racing | Compass positioned at: ${ghostScreen.x}, ${ghostScreen.y}`);
+        } catch (err) {
+            console.error('Chocobo Racing | Error in updatePosition:', err);
+        }
     }
 
     static close() {

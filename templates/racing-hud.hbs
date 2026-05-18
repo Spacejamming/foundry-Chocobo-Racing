@@ -1,6 +1,6 @@
 <div class="chocobo-racing-hud" id="chocobo-hud-{{tokenId}}">
     <!-- Compass Overlay (Rendered near Ghost) -->
-    <div class="chocobo-canvas-compass" style="position: absolute; transform: translate(-50%, -50%);">
+    <div class="chocobo-canvas-compass" style="position: fixed; transform: translate(-50%, -50%); padding: 10px;">
         <div class="compass-grid">
             <button type="button" class="compass-btn" data-action="adjust-nw" title="Northwest"><i class="fas fa-arrow-up-left"></i></button>
             <button type="button" class="compass-btn" data-action="adjust-n" title="North"><i class="fas fa-arrow-up"></i></button>
@@ -18,7 +18,7 @@
     </div>
 
     <!-- Actions Overlay (Rendered near Token) -->
-    <div class="chocobo-canvas-actions" style="position: absolute;">
+    <div class="chocobo-canvas-actions" style="position: fixed; padding: 10px;">
         <div class="hud-header" style="background-color: {{playerColor}}; color: #fff; padding: 5px; border-radius: 5px; margin-bottom: 5px; text-align: center; font-weight: bold; text-shadow: 1px 1px 2px #000;">
             {{riderName}} ({{stamina}}/{{maxStamina}} STM)
         </div>

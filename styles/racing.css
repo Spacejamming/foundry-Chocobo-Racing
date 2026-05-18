@@ -5,9 +5,13 @@
 }
 
 .chocobo-racing-hud {
-    display: flex;
-    flex-direction: column;
-    gap: 10px;
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    pointer-events: none;
+    z-index: 999;
 }
 
 .chocobo-racing-hud .hud-header {
@@ -114,10 +118,12 @@
     box-shadow: 0 0 10px #4caf50;
 }
 
-.chocobo-canvas-compass, .chocobo-canvas-actions {
-    pointer-events: auto;
-    z-index: 1000;
-}
-.chocobo-racing-hud {
-    pointer-events: none;
+.chocobo-canvas-compass,
+.chocobo-canvas-actions {
+    pointer-events: auto !important;
+    z-index: 1001 !important;
+    background: rgba(0, 0, 0, 0.8);
+    border: 2px solid var(--color-border-light);
+    border-radius: 5px;
+    padding: 10px;
 }
