@@ -124,7 +124,8 @@ class CanvasRacingHUD {
             maxStamina: maxStamina
         };
 
-        const htmlString = await renderTemplate("modules/chocobo-racing/templates/racing-hud.hbs", templateData);
+        const renderFn = foundry.applications?.handlebars?.renderTemplate || renderTemplate;
+        const htmlString = await renderFn("modules/chocobo-racing/templates/racing-hud.hbs", templateData);
         
         // Inject into #hud
         const $hud = $('#hud');
