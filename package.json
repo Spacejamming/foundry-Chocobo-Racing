@@ -1,0 +1,22 @@
+{
+  "name": "chocobo-racing",
+  "version": "1.0.0",
+  "description": "",
+  "main": "update-version.js",
+  "scripts": {
+    "version": "node update-version.js && git add module.json",
+    "postversion": "git push origin main --tags"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Spacejamming/foundry-Chocobo-Racing.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "bugs": {
+    "url": "https://github.com/Spacejamming/foundry-Chocobo-Racing/issues"
+  },
+  "homepage": "https://github.com/Spacejamming/foundry-Chocobo-Racing#readme"
+}

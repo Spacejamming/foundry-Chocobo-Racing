@@ -65,4 +65,68 @@ class RacingHUDApplication extends foundry.applications.api.ApplicationV2 {
     // to render Stamina, Speed, the Ghost rendering logic, and the "Lock In" / "Reveal" actions!
 }
 
+class RacingData {
+    static getVelocity(tokenDoc) {
+        return tokenDoc.getFlag(MODULE_ID, "velocity") || { x: 0, y: 0 };
+    }
+    
+    static async setVelocity(tokenDoc, x, y) {
+        return tokenDoc.setFlag(MODULE_ID, "velocity", { x, y });
+    }
+    
+    static getMaxStamina(tokenDoc) {
+        return tokenDoc.getFlag(MODULE_ID, "maxStamina") || 5;
+    }
+    
+    static getStamina(tokenDoc) {
+        const max = this.getMaxStamina(tokenDoc);
+        const current = tokenDoc.getFlag(MODULE_ID, "stamina");
+        return current !== undefined ? current : max;
+    }
+    
+    static async setStamina(tokenDoc, value) {
+        return tokenDoc.setFlag(MODULE_ID, "stamina", Math.max(0, value));
+    }
+}
+
+class GhostRenderer {
+    static renderGhost(token) {
+        if (!game.settings.get(MODULE_ID, "raceModeEnabled")) return;
+        
+        const velocity = RacingData.getVelocity(token.document);
+        
+        if (velocity.x === 0 && velocity.y === 0) {
+            if (token._ghostGraphics) {
+                token._ghostGraphics.clear();
+            }
+            return;
+        }
+
+        if (!token._ghostGraphics) {
+            token._ghostGraphics = new PIXI.Graphics();
+            // Ensure ghost renders behind the actual token artwork if possible
+            token._ghostGraphics.zIndex = -1;
+            token.addChild(token._ghostGraphics);
+            token.sortableChildren = true;
+        }
+
+        const sizeX = canvas.grid.sizeX;
+        const sizeY = canvas.grid.sizeY;
+        const dx = velocity.x * sizeX;
+        const dy = velocity.y * sizeY;
+        
+        const g = token._ghostGraphics;
+        g.clear();
+        g.lineStyle(2, 0x00FFFF, 0.8);
+        g.beginFill(0x00FFFF, 0.2);
+        g.drawRect(dx, dy, token.w, token.h);
+        g.endFill();
+    }
+}
+
 Hooks.once("init", () => RacingManager.init());
+
+Hooks.on("refreshToken", (token) => {
+    // Only render ghosts for tokens we own so we can't see enemy secret plans
+    if (token.isOwner) GhostRenderer.renderGhost(token);
+});
