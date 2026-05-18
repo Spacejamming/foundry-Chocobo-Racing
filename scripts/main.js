@@ -23,8 +23,10 @@ class RacingManager {
         if (!game.settings.get(MODULE_ID, "raceModeEnabled")) return;
         
         // Only show if we own the token
-        const token = canvas.tokens.get(data._id);
+        const token = hud.object;
         if (!token || !token.isOwner) return;
+
+        console.log("Chocobo Racing | Injecting Racing HUD button for", token.name);
 
         // Add a racing flag button to the left side of the HUD
         const button = $(`
