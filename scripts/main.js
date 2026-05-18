@@ -50,7 +50,9 @@ class RacingManager {
 
     static _onRenderTokenConfig(app, html, data) {
         const $html = $(html);
-        const nav = $html.find('nav.sheet-tabs[data-group="main"]');
+        const nav = $html.find('.sheet-tabs').first();
+        
+        console.log("Chocobo Racing | TokenConfig Nav Found:", nav.length);
         if (!nav.length) return;
 
         nav.append(`<a class="item" data-tab="chocobo-racing"><i class="fas fa-flag-checkered"></i> Racing</a>`);
@@ -92,6 +94,7 @@ class CanvasRacingHUD {
     static activeToken = null;
     static plan = { adjustment: { dx: 0, dy: 0 }, action: "action-none" };
     static element = null;
+    static _panHookRegistered = false;
 
     static async toggle(token) {
         if (this.activeToken === token) {
@@ -127,10 +130,26 @@ class CanvasRacingHUD {
         const renderFn = foundry.applications?.handlebars?.renderTemplate || renderTemplate;
         const htmlString = await renderFn("modules/chocobo-racing/templates/racing-hud.hbs", templateData);
         
-        // Inject into #hud
-        const $hud = $('#hud');
+        // Inject into #hud if present, otherwise fallback to document body
+        let $hud = $('#hud');
+        if (!$hud.length) {
+            console.warn("Chocobo Racing | #hud element not found, appending HUD to document.body");
+            $hud = $('body');
+        }
         $hud.append(htmlString);
         this.element = $hud.find(`#chocobo-hud-${token.id}`);
+
+        // Sanity check: ensure the injected element exists and is interactive
+        if (!this.element || !this.element.length) {
+            console.error(`Chocobo Racing | Failed to find injected HUD element for token ${token.id}`);
+        } else {
+            // Ensure the HUD can receive pointer events even if appended to body
+            try {
+                this.element.css('pointer-events', 'auto');
+            } catch (err) {
+                console.warn('Chocobo Racing | Could not set pointer-events on HUD element', err);
+            }
+        }
 
         this.updatePosition();
 
@@ -167,7 +186,10 @@ class CanvasRacingHUD {
             this.close();
         });
 
-        Hooks.on('canvasPan', CanvasRacingHUD.onPan);
+        if (!this._panHookRegistered) {
+            Hooks.on('canvasPan', CanvasRacingHUD.onPan);
+            this._panHookRegistered = true;
+        }
     }
 
     static onPan = () => {
@@ -222,7 +244,10 @@ class CanvasRacingHUD {
             GhostRenderer.renderGhost(this.activeToken);
             this.activeToken = null;
         }
-        Hooks.off('canvasPan', CanvasRacingHUD.onPan);
+        if (this._panHookRegistered) {
+            Hooks.off('canvasPan', CanvasRacingHUD.onPan);
+            this._panHookRegistered = false;
+        }
     }
 }
 

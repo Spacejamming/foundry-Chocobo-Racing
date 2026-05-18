@@ -6,6 +6,7 @@
   "scripts": {
     "version": "node update-version.js && git add module.json",
     "postversion": "git push origin main --tags"
+    ,"commit-changes": "node scripts/auto-commit.js"
   },
   "repository": {
     "type": "git",
