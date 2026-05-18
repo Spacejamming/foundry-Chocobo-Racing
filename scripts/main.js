@@ -28,10 +28,9 @@ class RacingManager {
 
         console.log("Chocobo Racing | Injecting Racing HUD button for", token.name);
 
-        // Add a racing flag button to the left side of the HUD
         const button = $(`
             <div class="control-icon chocobo-race-hud-btn" title="Open Racing HUD">
-                <i class="fa-solid fa-flag-checkered"></i>
+                <i class="fas fa-flag-checkered"></i>
             </div>
         `);
         
@@ -40,7 +39,14 @@ class RacingManager {
             new RacingHUDApplication(token).render(true);
         });
 
-        html.find('.col.left').append(button);
+        const leftCol = html.find('.col.left');
+        console.log("Chocobo Racing | Found left column:", leftCol.length);
+        if (leftCol.length > 0) {
+            leftCol.append(button);
+        } else {
+            // Fallback if .col.left isn't found
+            html.find('.control-icon').first().parent().append(button);
+        }
     }
 }
 
