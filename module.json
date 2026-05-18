@@ -14,7 +14,7 @@
       "flags": {}
     }
   ],
-  "esmodules": [
+  "scripts": [
     "scripts/main.js"
   ],
   "styles": [
