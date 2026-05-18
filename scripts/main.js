@@ -131,26 +131,15 @@ class CanvasRacingHUD {
         const renderFn = foundry.applications?.handlebars?.renderTemplate || renderTemplate;
         const htmlString = await renderFn("modules/chocobo-racing/templates/racing-hud.hbs", templateData);
         
-        // Inject into #hud if present, otherwise fallback to document body
-        let $hud = $('#hud');
-        if (!$hud.length) {
-            console.warn("Chocobo Racing | #hud element not found, appending HUD to document.body");
-            $hud = $('body');
-        }
-        $hud.append(htmlString);
-        this.element = $hud.find(`#chocobo-hud-${token.id}`);
+        // Inject into body directly (bypass #hud entirely)
+        $('body').append(htmlString);
+        this.element = $('#chocobo-hud-' + token.id);
 
         // Sanity check: ensure the injected element exists and is interactive
         if (!this.element || !this.element.length) {
             console.error(`Chocobo Racing | Failed to find injected HUD element for token ${token.id}`);
         } else {
-            // Ensure the HUD can receive pointer events even if appended to body
-            try {
-                this.element.css('pointer-events', 'auto');
-            } catch (err) {
-                console.warn('Chocobo Racing | Could not set pointer-events on HUD element', err);
-            }
-        }
+            console.log(`Chocobo Racing | HUD element found and appended to body`);
 
         // Log HUD injection for debugging
         console.log(`Chocobo Racing | HUD opened for token ${token.id}`);
@@ -159,9 +148,12 @@ class CanvasRacingHUD {
         
         this.updatePosition();
 
-        // Bind events
-        this.element.find('.compass-btn').click(ev => {
-            this.element.find('.compass-btn').removeClass('active');
+        // Bind events to compass and actions (now separate elements in DOM)
+        const compassHUD = $('.chocobo-canvas-compass');
+        const actionsHUD = $('.chocobo-canvas-actions');
+        
+        compassHUD.find('.compass-btn').click(ev => {
+            compassHUD.find('.compass-btn').removeClass('active');
             $(ev.currentTarget).addClass('active');
             const action = ev.currentTarget.dataset.action;
             let dx = 0, dy = 0;
@@ -179,13 +171,13 @@ class CanvasRacingHUD {
             GhostRenderer.renderGhost(this.activeToken);
         });
 
-        this.element.find('.action-btn').click(ev => {
-            this.element.find('.action-btn').removeClass('active');
+        actionsHUD.find('.action-btn').click(ev => {
+            actionsHUD.find('.action-btn').removeClass('active');
             $(ev.currentTarget).addClass('active');
             this.plan.action = ev.currentTarget.dataset.action;
         });
 
-        this.element.find('.lock-in-btn').click(async (ev) => {
+        actionsHUD.find('.lock-in-btn').click(async (ev) => {
             ev.preventDefault();
             await this.activeToken.document.setFlag(MODULE_ID, "secretPlan", this.plan);
             ui.notifications.info(`${riderName} locked in their plan!`);
@@ -226,7 +218,7 @@ class CanvasRacingHUD {
     // Note: now using interval-based updates instead of hook; kept for reference
 
     static updatePosition() {
-        if (!this.activeToken || !this.element) {
+        if (!this.activeToken) {
             return;
         }
         
@@ -235,8 +227,13 @@ class CanvasRacingHUD {
         }
         
         try {
-            // Actions go near the token
-            const actionsHUD = this.element.find('.chocobo-canvas-actions');
+            // Get elements (now direct children of body, not nested)
+            const actionsHUD = $('.chocobo-canvas-actions');
+            const compassHUD = $('.chocobo-canvas-compass');
+            
+            if (!actionsHUD.length || !compassHUD.length) {
+                return;
+            }
             
             // Get token's world position and convert to viewport coordinates
             const tokenX = this.activeToken.x;
@@ -282,7 +279,6 @@ class CanvasRacingHUD {
             const compassLeft = Math.round(ghostScreenCoords.x);
             const compassTop = Math.round(ghostScreenCoords.y);
             
-            const compassHUD = this.element.find('.chocobo-canvas-compass');
             compassHUD.css({ left: compassLeft, top: compassTop });
             console.log(`Compass positioned: left=${compassLeft}, top=${compassTop}`);
         } catch (err) {
@@ -296,10 +292,15 @@ class CanvasRacingHUD {
             this._updateInterval = null;
             console.log('Chocobo Racing | Cleared position update interval');
         }
+        
+        // Remove all HUD elements (compass, actions, wrapper)
+        $('.chocobo-canvas-compass').remove();
+        $('.chocobo-canvas-actions').remove();
         if (this.element) {
             this.element.remove();
             this.element = null;
         }
+        
         if (this.activeToken) {
             delete this.activeToken._previewAdjustment;
             GhostRenderer.renderGhost(this.activeToken);
