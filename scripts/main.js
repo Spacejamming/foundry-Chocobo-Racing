@@ -151,6 +151,7 @@ class CanvasRacingHUD {
         // Bind events to compass and actions (now separate elements in DOM)
         const compassHUD = $('.chocobo-canvas-compass');
         const actionsHUD = $('.chocobo-canvas-actions');
+        const self = this; // Capture 'this' for use in event handlers
         
         compassHUD.find('.compass-btn').click(ev => {
             compassHUD.find('.compass-btn').removeClass('active');
@@ -166,22 +167,22 @@ class CanvasRacingHUD {
             if (action === "adjust-sw") { dx = -1; dy = 1; }
             if (action === "adjust-se") { dx = 1; dy = 1; }
             if (action === "adjust-reset") { dx = 0; dy = 0; }
-            this.plan.adjustment = { dx, dy };
-            this.activeToken._previewAdjustment = this.plan.adjustment;
-            GhostRenderer.renderGhost(this.activeToken);
+            self.plan.adjustment = { dx, dy };
+            self.activeToken._previewAdjustment = self.plan.adjustment;
+            GhostRenderer.renderGhost(self.activeToken);
         });
 
         actionsHUD.find('.action-btn').click(ev => {
             actionsHUD.find('.action-btn').removeClass('active');
             $(ev.currentTarget).addClass('active');
-            this.plan.action = ev.currentTarget.dataset.action;
+            self.plan.action = ev.currentTarget.dataset.action;
         });
 
         actionsHUD.find('.lock-in-btn').click(async (ev) => {
             ev.preventDefault();
-            await this.activeToken.document.setFlag(MODULE_ID, "secretPlan", this.plan);
+            await self.activeToken.document.setFlag(MODULE_ID, "secretPlan", self.plan);
             ui.notifications.info(`${riderName} locked in their plan!`);
-            this.close();
+            self.close();
         });
 
         if (!this._panHookRegistered) {
