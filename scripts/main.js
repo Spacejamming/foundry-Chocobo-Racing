@@ -91,12 +91,6 @@ class RacingManager {
 }
 
 class CanvasRacingHUD {
-    static activeToken = null;
-    static plan = { adjustment: { dx: 0, dy: 0 }, action: "action-none" };
-    static element = null;
-    static _panHookRegistered = false;
-    static _updateInterval = null;
-
     static async toggle(token) {
         if (this.activeToken === token) {
             this.close();
@@ -140,6 +134,7 @@ class CanvasRacingHUD {
             console.error(`Chocobo Racing | Failed to find injected HUD element for token ${token.id}`);
         } else {
             console.log(`Chocobo Racing | HUD element found and appended to body`);
+        }
 
         // Log HUD injection for debugging
         console.log(`Chocobo Racing | HUD opened for token ${token.id}`);
@@ -209,7 +204,7 @@ class CanvasRacingHUD {
         }, 50);
     }
 
-    static onPan = () => {
+    static onPan() {
         console.log('Chocobo Racing | onPan callback triggered');
         if (CanvasRacingHUD.activeToken) {
             CanvasRacingHUD.updatePosition();
@@ -310,6 +305,12 @@ class CanvasRacingHUD {
         console.log('Chocobo Racing | HUD closed');
     }
 }
+
+CanvasRacingHUD.activeToken = null;
+CanvasRacingHUD.plan = { adjustment: { dx: 0, dy: 0 }, action: "action-none" };
+CanvasRacingHUD.element = null;
+CanvasRacingHUD._panHookRegistered = false;
+CanvasRacingHUD._updateInterval = null;
 
 class RacingData {
     static getRider(tokenDoc) {
