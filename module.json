@@ -2,7 +2,7 @@
   "id": "chocobo-racing",
   "title": "Chocobo Vector Racing",
   "description": "A minigame module automating Vector Racing mechanics for DnD5e, featuring secret planning phases, momentum physics, and region-based track features.",
-  "version": "1.0.1",
+  "version": "1.1.0",
   "compatibility": {
     "minimum": "13",
     "verified": "13",
@@ -31,5 +31,5 @@
     ]
   },
   "manifest": "https://github.com/Spacejamming/foundry-Chocobo-Racing/releases/latest/download/module.json",
-  "download": "https://github.com/Spacejamming/foundry-Chocobo-Racing/releases/download/v1.0.1/module.zip"
+  "download": "https://github.com/Spacejamming/foundry-Chocobo-Racing/releases/download/v1.1.0/module.zip"
 }
