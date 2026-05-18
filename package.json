@@ -1,12 +1,12 @@
 {
   "name": "chocobo-racing",
-  "version": "1.1.6",
+  "version": "1.1.7",
   "description": "",
   "main": "update-version.js",
   "scripts": {
     "version": "node update-version.js && git add module.json",
-    "postversion": "git push origin main --tags"
-    ,"commit-changes": "node scripts/auto-commit.js"
+    "postversion": "git push origin main --tags",
+    "commit-changes": "node scripts/auto-commit.js"
   },
   "repository": {
     "type": "git",
