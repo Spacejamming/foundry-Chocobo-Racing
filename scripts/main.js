@@ -42,27 +42,103 @@ class RacingManager {
     }
 }
 
-class RacingHUDApplication extends foundry.applications.api.ApplicationV2 {
+const { ApplicationV2, HandlebarsApplicationMixin } = foundry.applications.api;
+
+class RacingHUDApplication extends HandlebarsApplicationMixin(ApplicationV2) {
     constructor(token) {
         super();
         this.token = token;
+        this.plan = {
+            adjustment: { dx: 0, dy: 0 },
+            action: "action-none"
+        };
     }
 
     static DEFAULT_OPTIONS = {
         id: "chocobo-racing-hud",
         classes: ["chocobo-racing-app"],
-        title: "Racing HUD",
         tag: "form",
         position: { width: 350, height: "auto" },
         window: { minimizable: true, resizable: false }
+    };
+
+    static PARTS = {
+        hud: {
+            template: "modules/chocobo-racing/templates/racing-hud.hbs",
+        }
     };
 
     get title() {
         return `Racing HUD: ${this.token.name}`;
     }
 
-    // In a future session, we will expand this class with Vue/Handlebars logic 
-    // to render Stamina, Speed, the Ghost rendering logic, and the "Lock In" / "Reveal" actions!
+    async _prepareContext(options) {
+        const ownerUser = game.users.find(u => !u.isGM && this.token.document.testUserPermission(u, "OWNER")) || game.user;
+        const colorHex = ownerUser.color || "#00FFFF";
+        
+        return {
+            tokenName: this.token.name,
+            playerColor: colorHex,
+            stamina: RacingData.getStamina(this.token.document),
+            maxStamina: RacingData.getMaxStamina(this.token.document),
+            velocity: RacingData.getVelocity(this.token.document)
+        };
+    }
+
+    _onRender(context, options) {
+        super._onRender(context, options);
+        const html = this.element;
+
+        // Compass Handlers
+        html.querySelectorAll('.compass-btn').forEach(btn => {
+            btn.addEventListener('click', (ev) => {
+                html.querySelectorAll('.compass-btn').forEach(b => b.classList.remove('active'));
+                ev.currentTarget.classList.add('active');
+                
+                const action = ev.currentTarget.dataset.action;
+                let dx = 0, dy = 0;
+                if (action === "adjust-n") dy = -1;
+                if (action === "adjust-s") dy = 1;
+                if (action === "adjust-e") dx = 1;
+                if (action === "adjust-w") dx = -1;
+                if (action === "adjust-nw") { dx = -1; dy = -1; }
+                if (action === "adjust-ne") { dx = 1; dy = -1; }
+                if (action === "adjust-sw") { dx = -1; dy = 1; }
+                if (action === "adjust-se") { dx = 1; dy = 1; }
+                if (action === "adjust-reset") { dx = 0; dy = 0; }
+                
+                this.plan.adjustment = { dx, dy };
+                
+                // Update preview line
+                this.token._previewAdjustment = this.plan.adjustment;
+                GhostRenderer.renderGhost(this.token);
+            });
+        });
+
+        // Action Handlers
+        html.querySelectorAll('.action-btn').forEach(btn => {
+            btn.addEventListener('click', (ev) => {
+                html.querySelectorAll('.action-btn').forEach(b => b.classList.remove('active'));
+                ev.currentTarget.classList.add('active');
+                this.plan.action = ev.currentTarget.dataset.action;
+            });
+        });
+
+        // Form Submit / Lock In
+        html.querySelector('.lock-in-btn').addEventListener('click', async (ev) => {
+            ev.preventDefault();
+            await this.token.document.setFlag(MODULE_ID, "secretPlan", this.plan);
+            ui.notifications.info(`${this.token.name} locked in their plan!`);
+            this.close();
+        });
+    }
+    
+    close(options) {
+        // Clear preview when closing
+        delete this.token._previewAdjustment;
+        GhostRenderer.renderGhost(this.token);
+        return super.close(options);
+    }
 }
 
 class RacingData {
@@ -110,8 +186,17 @@ class GhostRenderer {
 
         const sizeX = canvas.grid.sizeX || canvas.grid.size;
         const sizeY = canvas.grid.sizeY || canvas.grid.size;
-        const dx = velocity.x * sizeX;
-        const dy = velocity.y * sizeY;
+        
+        let dx = velocity.x;
+        let dy = velocity.y;
+
+        if (token._previewAdjustment) {
+            dx += token._previewAdjustment.dx;
+            dy += token._previewAdjustment.dy;
+        }
+
+        const px = dx * sizeX;
+        const py = dy * sizeY;
         
         const g = token._ghostGraphics;
         g.clear();
@@ -125,13 +210,13 @@ class GhostRenderer {
 
         g.lineStyle(2, colorNumeric, 0.8);
         g.beginFill(colorNumeric, 0.2);
-        g.drawRect(dx, dy, token.document.width * sizeX, token.document.height * sizeY);
+        g.drawRect(px, py, token.document.width * sizeX, token.document.height * sizeY);
         g.endFill();
 
         // Draw line between rider and ghost
-        g.lineStyle(2, colorNumeric, 0.5);
+        g.lineStyle(2, colorNumeric, token._previewAdjustment ? 0.8 : 0.5);
         g.moveTo(sizeX / 2, sizeY / 2); // Center of token
-        g.lineTo(dx + sizeX / 2, dy + sizeY / 2); // Center of ghost
+        g.lineTo(px + sizeX / 2, py + sizeY / 2); // Center of ghost
 
         // Check if this owner has multiple racers
         const ownedTokens = canvas.tokens.placeables.filter(t => t.document.testUserPermission(ownerUser, "OWNER"));
@@ -142,10 +227,9 @@ class GhostRenderer {
             // Label for Ghost
             const textStyle = { fill: colorHex, fontSize: 32, stroke: 0x000000, strokeThickness: 4, fontWeight: 'bold' };
             const ghostText = new PIXI.Text({text: labelChar, style: textStyle}); // V12/13 PIXI.Text options
-            // Fallback for V11 PIXI.Text if needed: new PIXI.Text(labelChar, textStyle)
             const gText = new PIXI.Text(labelChar, textStyle);
             gText.anchor.set(0.5);
-            gText.position.set(dx + (token.document.width * sizeX)/2, dy + (token.document.height * sizeY)/2);
+            gText.position.set(px + (token.document.width * sizeX)/2, py + (token.document.height * sizeY)/2);
             g.addChild(gText);
 
             // Label for Token

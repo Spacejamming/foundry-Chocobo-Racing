@@ -4,6 +4,112 @@
     color: #ff9829;
 }
 
-.chocobo-racing-app {
-    /* Styles for the Racing HUD will go here */
+.chocobo-racing-hud {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.chocobo-racing-hud .hud-header {
+    border-radius: 5px;
+    margin-bottom: 5px;
+}
+
+.chocobo-racing-hud .control-section,
+.chocobo-racing-hud .action-section {
+    background: rgba(0, 0, 0, 0.1);
+    padding: 10px;
+    border-radius: 5px;
+    border: 1px solid var(--color-border-dark);
+}
+
+.chocobo-racing-hud h3 {
+    margin: 0 0 5px 0;
+    border-bottom: 1px solid var(--color-border-dark);
+}
+
+.chocobo-racing-hud p {
+    margin: 0 0 10px 0;
+    font-size: 0.9em;
+}
+
+/* Compass Grid */
+.chocobo-racing-hud .compass-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 40px);
+    grid-template-rows: repeat(3, 40px);
+    gap: 5px;
+    justify-content: center;
+}
+
+.chocobo-racing-hud .compass-btn {
+    width: 40px;
+    height: 40px;
+    border: 1px solid var(--color-border-light);
+    border-radius: 5px;
+    background: rgba(255, 255, 255, 0.1);
+    cursor: pointer;
+    font-size: 1.2em;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.2s;
+}
+
+.chocobo-racing-hud .compass-btn:hover {
+    background: rgba(255, 255, 255, 0.3);
+    box-shadow: 0 0 5px var(--color-shadow-primary);
+}
+
+.chocobo-racing-hud .compass-btn.active {
+    background: var(--color-bg-option);
+    border-color: var(--color-border-highlight);
+    color: var(--color-text-light-highlight);
+    box-shadow: inset 0 0 5px rgba(0,0,0,0.5);
+}
+
+.chocobo-racing-hud .compass-center {
+    width: 40px;
+    height: 40px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: rgba(0, 255, 255, 0.2);
+    border-radius: 50%;
+    color: #00ffff;
+    border: 1px solid #00ffff;
+}
+
+.chocobo-racing-hud .action-buttons {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 5px;
+}
+
+.chocobo-racing-hud .action-btn {
+    flex: 1 1 45%;
+    padding: 5px;
+    border: 1px solid var(--color-border-light);
+    border-radius: 3px;
+    background: rgba(255, 255, 255, 0.1);
+}
+
+.chocobo-racing-hud .action-btn.active {
+    background: var(--color-bg-option);
+    border-color: var(--color-border-highlight);
+}
+
+.chocobo-racing-hud .lock-in-btn {
+    width: 100%;
+    padding: 10px;
+    background: #4caf50;
+    color: white;
+    font-weight: bold;
+    border: 2px solid #2e7d32;
+    border-radius: 5px;
+}
+
+.chocobo-racing-hud .lock-in-btn:hover {
+    background: #45a049;
+    box-shadow: 0 0 10px #4caf50;
 }
