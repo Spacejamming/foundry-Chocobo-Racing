@@ -17,140 +17,220 @@ class RacingManager {
 
         // Hook to inject Racing HUD button on tokens
         Hooks.on("renderTokenHUD", RacingManager._onTokenHUD);
+        
+        // Hook to inject Token Config settings
+        Hooks.on("renderTokenConfig", RacingManager._onRenderTokenConfig);
     }
 
     static _onTokenHUD(hud, html, data) {
         if (!game.settings.get(MODULE_ID, "raceModeEnabled")) return;
         
-        // Only show if we own the token
         const token = hud.object;
         if (!token || !token.isOwner) return;
 
-        console.log("Chocobo Racing | Injecting Racing HUD button for", token.name);
-
         const button = $(`
-            <div class="control-icon chocobo-race-hud-btn" title="Open Racing HUD">
+            <div class="control-icon chocobo-race-hud-btn" title="Toggle Racing HUD">
                 <i class="fas fa-flag-checkered"></i>
             </div>
         `);
         
         button.click((ev) => {
             ev.preventDefault();
-            new RacingHUDApplication(token).render(true);
+            CanvasRacingHUD.toggle(token);
         });
 
         const $html = $(html);
         const leftCol = $html.find('.col.left');
-        console.log("Chocobo Racing | Found left column:", leftCol.length);
         if (leftCol.length > 0) {
             leftCol.append(button);
         } else {
-            // Fallback if .col.left isn't found
             $html.find('.control-icon').first().parent().append(button);
         }
     }
+
+    static _onRenderTokenConfig(app, html, data) {
+        const $html = $(html);
+        const nav = $html.find('nav.sheet-tabs[data-group="main"]');
+        if (!nav.length) return;
+
+        nav.append(`<a class="item" data-tab="chocobo-racing"><i class="fas fa-flag-checkered"></i> Racing</a>`);
+
+        const riderId = app.document.getFlag(MODULE_ID, "riderId") || "";
+        const maxStamina = app.document.getFlag(MODULE_ID, "maxStamina") || 5;
+
+        let options = `<option value="">None</option>`;
+        game.actors.forEach(actor => {
+            if (actor.hasPlayerOwner) {
+                const selected = actor.id === riderId ? "selected" : "";
+                options += `<option value="${actor.id}" ${selected}>${actor.name}</option>`;
+            }
+        });
+
+        const tab = $(`
+            <div class="tab" data-group="main" data-tab="chocobo-racing">
+                <div class="form-group">
+                    <label>Rider Actor</label>
+                    <div class="form-fields">
+                        <select name="flags.${MODULE_ID}.riderId">${options}</select>
+                    </div>
+                    <p class="notes">Link a player actor to this mount for skill checks and identification.</p>
+                </div>
+                <div class="form-group">
+                    <label>Max Stamina</label>
+                    <div class="form-fields">
+                        <input type="number" name="flags.${MODULE_ID}.maxStamina" value="${maxStamina}" min="1" step="1">
+                    </div>
+                </div>
+            </div>
+        `);
+
+        $html.find('footer.sheet-footer').before(tab);
+    }
 }
 
-const { ApplicationV2, HandlebarsApplicationMixin } = foundry.applications.api;
+class CanvasRacingHUD {
+    static activeToken = null;
+    static plan = { adjustment: { dx: 0, dy: 0 }, action: "action-none" };
+    static element = null;
 
-class RacingHUDApplication extends HandlebarsApplicationMixin(ApplicationV2) {
-    constructor(token) {
-        super();
-        this.token = token;
-        this.plan = {
-            adjustment: { dx: 0, dy: 0 },
-            action: "action-none"
-        };
-    }
-
-    static DEFAULT_OPTIONS = {
-        id: "chocobo-racing-hud",
-        classes: ["chocobo-racing-app"],
-        tag: "form",
-        position: { width: 350, height: "auto" },
-        window: { minimizable: true, resizable: false }
-    };
-
-    static PARTS = {
-        hud: {
-            template: "modules/chocobo-racing/templates/racing-hud.hbs",
+    static async toggle(token) {
+        if (this.activeToken === token) {
+            this.close();
+        } else {
+            await this.open(token);
         }
-    };
-
-    get title() {
-        return `Racing HUD: ${this.token.name}`;
     }
 
-    async _prepareContext(options) {
-        const ownerUser = game.users.find(u => !u.isGM && this.token.document.testUserPermission(u, "OWNER")) || game.user;
-        const colorHex = ownerUser.color || "#00FFFF";
+    static async open(token) {
+        this.close(); // Close any existing
+        this.activeToken = token;
+        this.plan = { adjustment: { dx: 0, dy: 0 }, action: "action-none" };
         
-        return {
-            tokenName: this.token.name,
+        const rider = RacingData.getRider(token.document);
+        const riderName = rider ? rider.name : token.name;
+        const stamina = RacingData.getStamina(token.document);
+        const maxStamina = RacingData.getMaxStamina(token.document);
+        const velocity = RacingData.getVelocity(token.document);
+        
+        const ownerUser = game.users.find(u => !u.isGM && token.document.testUserPermission(u, "OWNER")) || game.user;
+        const colorHex = ownerUser.color || "#00FFFF";
+
+        const templateData = {
+            tokenId: token.id,
+            tokenName: token.name,
+            riderName: riderName,
             playerColor: colorHex,
-            stamina: RacingData.getStamina(this.token.document),
-            maxStamina: RacingData.getMaxStamina(this.token.document),
-            velocity: RacingData.getVelocity(this.token.document)
+            stamina: stamina,
+            maxStamina: maxStamina
         };
-    }
 
-    _onRender(context, options) {
-        super._onRender(context, options);
-        const html = this.element;
+        const htmlString = await renderTemplate("modules/chocobo-racing/templates/racing-hud.hbs", templateData);
+        
+        // Inject into #hud
+        const $hud = $('#hud');
+        $hud.append(htmlString);
+        this.element = $hud.find(`#chocobo-hud-${token.id}`);
 
-        // Compass Handlers
-        html.querySelectorAll('.compass-btn').forEach(btn => {
-            btn.addEventListener('click', (ev) => {
-                html.querySelectorAll('.compass-btn').forEach(b => b.classList.remove('active'));
-                ev.currentTarget.classList.add('active');
-                
-                const action = ev.currentTarget.dataset.action;
-                let dx = 0, dy = 0;
-                if (action === "adjust-n") dy = -1;
-                if (action === "adjust-s") dy = 1;
-                if (action === "adjust-e") dx = 1;
-                if (action === "adjust-w") dx = -1;
-                if (action === "adjust-nw") { dx = -1; dy = -1; }
-                if (action === "adjust-ne") { dx = 1; dy = -1; }
-                if (action === "adjust-sw") { dx = -1; dy = 1; }
-                if (action === "adjust-se") { dx = 1; dy = 1; }
-                if (action === "adjust-reset") { dx = 0; dy = 0; }
-                
-                this.plan.adjustment = { dx, dy };
-                
-                // Update preview line
-                this.token._previewAdjustment = this.plan.adjustment;
-                GhostRenderer.renderGhost(this.token);
-            });
+        this.updatePosition();
+
+        // Bind events
+        this.element.find('.compass-btn').click(ev => {
+            this.element.find('.compass-btn').removeClass('active');
+            $(ev.currentTarget).addClass('active');
+            const action = ev.currentTarget.dataset.action;
+            let dx = 0, dy = 0;
+            if (action === "adjust-n") dy = -1;
+            if (action === "adjust-s") dy = 1;
+            if (action === "adjust-e") dx = 1;
+            if (action === "adjust-w") dx = -1;
+            if (action === "adjust-nw") { dx = -1; dy = -1; }
+            if (action === "adjust-ne") { dx = 1; dy = -1; }
+            if (action === "adjust-sw") { dx = -1; dy = 1; }
+            if (action === "adjust-se") { dx = 1; dy = 1; }
+            if (action === "adjust-reset") { dx = 0; dy = 0; }
+            this.plan.adjustment = { dx, dy };
+            this.activeToken._previewAdjustment = this.plan.adjustment;
+            GhostRenderer.renderGhost(this.activeToken);
         });
 
-        // Action Handlers
-        html.querySelectorAll('.action-btn').forEach(btn => {
-            btn.addEventListener('click', (ev) => {
-                html.querySelectorAll('.action-btn').forEach(b => b.classList.remove('active'));
-                ev.currentTarget.classList.add('active');
-                this.plan.action = ev.currentTarget.dataset.action;
-            });
+        this.element.find('.action-btn').click(ev => {
+            this.element.find('.action-btn').removeClass('active');
+            $(ev.currentTarget).addClass('active');
+            this.plan.action = ev.currentTarget.dataset.action;
         });
 
-        // Form Submit / Lock In
-        html.querySelector('.lock-in-btn').addEventListener('click', async (ev) => {
+        this.element.find('.lock-in-btn').click(async (ev) => {
             ev.preventDefault();
-            await this.token.document.setFlag(MODULE_ID, "secretPlan", this.plan);
-            ui.notifications.info(`${this.token.name} locked in their plan!`);
+            await this.activeToken.document.setFlag(MODULE_ID, "secretPlan", this.plan);
+            ui.notifications.info(`${riderName} locked in their plan!`);
             this.close();
         });
+
+        Hooks.on('canvasPan', CanvasRacingHUD.onPan);
     }
-    
-    close(options) {
-        // Clear preview when closing
-        delete this.token._previewAdjustment;
-        GhostRenderer.renderGhost(this.token);
-        return super.close(options);
+
+    static onPan = () => {
+        if (CanvasRacingHUD.activeToken) {
+            CanvasRacingHUD.updatePosition();
+        }
+    }
+
+    static updatePosition() {
+        if (!this.activeToken || !this.element) return;
+        
+        // Actions go near the token
+        const actionsHUD = this.element.find('.chocobo-canvas-actions');
+        
+        // Use native Foundry transform for Token
+        const tokenPoint = {
+            x: this.activeToken.document.x + this.activeToken.w, 
+            y: this.activeToken.document.y
+        };
+        const tokenScreen = canvas.clientCoordinatesFromCanvas(tokenPoint);
+        actionsHUD.css({ left: tokenScreen.x + 20, top: tokenScreen.y });
+
+        // Compass goes over the ghost
+        const velocity = RacingData.getVelocity(this.activeToken.document);
+        const sizeX = canvas.grid.sizeX || canvas.grid.size;
+        const sizeY = canvas.grid.sizeY || canvas.grid.size;
+        
+        // Include preview adjustment if any
+        let dx = velocity.x;
+        let dy = velocity.y;
+        if (this.activeToken._previewAdjustment) {
+            dx += this.activeToken._previewAdjustment.dx;
+            dy += this.activeToken._previewAdjustment.dy;
+        }
+
+        const ghostX = this.activeToken.document.x + (dx * sizeX) + (this.activeToken.w / 2);
+        const ghostY = this.activeToken.document.y + (dy * sizeY) + (this.activeToken.h / 2);
+        
+        const ghostScreen = canvas.clientCoordinatesFromCanvas({x: ghostX, y: ghostY});
+        
+        const compassHUD = this.element.find('.chocobo-canvas-compass');
+        compassHUD.css({ left: ghostScreen.x, top: ghostScreen.y });
+    }
+
+    static close() {
+        if (this.element) {
+            this.element.remove();
+            this.element = null;
+        }
+        if (this.activeToken) {
+            delete this.activeToken._previewAdjustment;
+            GhostRenderer.renderGhost(this.activeToken);
+            this.activeToken = null;
+        }
+        Hooks.off('canvasPan', CanvasRacingHUD.onPan);
     }
 }
 
 class RacingData {
+    static getRider(tokenDoc) {
+        const riderId = tokenDoc.getFlag(MODULE_ID, "riderId");
+        return riderId ? game.actors.get(riderId) : null;
+    }
+
     static getVelocity(tokenDoc) {
         return tokenDoc.getFlag(MODULE_ID, "velocity") || { x: 0, y: 0 };
     }

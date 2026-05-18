@@ -113,3 +113,11 @@
     background: #45a049;
     box-shadow: 0 0 10px #4caf50;
 }
+
+.chocobo-canvas-compass, .chocobo-canvas-actions {
+    pointer-events: auto;
+    z-index: 1000;
+}
+.chocobo-racing-hud {
+    pointer-events: none;
+}
