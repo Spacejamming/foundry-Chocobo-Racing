@@ -39,13 +39,14 @@ class RacingManager {
             new RacingHUDApplication(token).render(true);
         });
 
-        const leftCol = html.find('.col.left');
+        const $html = $(html);
+        const leftCol = $html.find('.col.left');
         console.log("Chocobo Racing | Found left column:", leftCol.length);
         if (leftCol.length > 0) {
             leftCol.append(button);
         } else {
             // Fallback if .col.left isn't found
-            html.find('.control-icon').first().parent().append(button);
+            $html.find('.control-icon').first().parent().append(button);
         }
     }
 }
