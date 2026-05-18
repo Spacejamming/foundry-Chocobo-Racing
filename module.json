@@ -1,0 +1,33 @@
+{
+  "id": "chocobo-racing",
+  "title": "Chocobo Vector Racing",
+  "description": "A minigame module automating Vector Racing mechanics for DnD5e, featuring secret planning phases, momentum physics, and region-based track features.",
+  "version": "0.1.0",
+  "compatibility": {
+    "minimum": "13",
+    "verified": "13",
+    "maximum": "13"
+  },
+  "authors": [
+    {
+      "name": "Ewan",
+      "flags": {}
+    }
+  ],
+  "esmodules": [
+    "scripts/main.js"
+  ],
+  "styles": [
+    "styles/racing.css"
+  ],
+  "relationships": {
+    "systems": [
+      {
+        "id": "dnd5e",
+        "type": "system",
+        "manifest": "",
+        "compatibility": {}
+      }
+    ]
+  }
+}

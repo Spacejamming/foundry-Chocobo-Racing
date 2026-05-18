@@ -1,0 +1,69 @@
+name: Release Module
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Version bump type (e.g., patch, minor, major) or specific version'
+        required: true
+        default: 'patch'
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+    - uses: actions/checkout@v4
+      with:
+        fetch-depth: 0
+
+    - name: Bump version in module.json
+      id: bump_version
+      run: |
+        CURRENT_VERSION=$(jq -r .version module.json)
+        
+        # logic to bump semantic version
+        if [ "${{ github.event.inputs.version }}" = "patch" ]; then
+          NEW_VERSION=$(echo $CURRENT_VERSION | awk -F. -v OFS=. '{$3++; print}')
+        elif [ "${{ github.event.inputs.version }}" = "minor" ]; then
+          NEW_VERSION=$(echo $CURRENT_VERSION | awk -F. -v OFS=. '{$2++; $3=0; print}')
+        elif [ "${{ github.event.inputs.version }}" = "major" ]; then
+          NEW_VERSION=$(echo $CURRENT_VERSION | awk -F. -v OFS=. '{$1++; $2=0; $3=0; print}')
+        else
+          NEW_VERSION="${{ github.event.inputs.version }}"
+        fi
+        
+        # Update manifest and download links
+        MANIFEST_URL="https://github.com/Spacejamming/foundry-Chocobo-Racing/releases/latest/download/module.json"
+        DOWNLOAD_URL="https://github.com/Spacejamming/foundry-Chocobo-Racing/releases/download/v${NEW_VERSION}/module.zip"
+        
+        # We write to a tmp file then move it to module.json
+        jq --arg ver "$NEW_VERSION" \
+           --arg man "$MANIFEST_URL" \
+           --arg dnl "$DOWNLOAD_URL" \
+           '.version = $ver | .manifest = $man | .download = $dnl' module.json > tmp.json && mv tmp.json module.json
+           
+        echo "NEW_VERSION=$NEW_VERSION" >> $GITHUB_ENV
+
+    - name: Commit and push changes
+      run: |
+        git config --global user.name "github-actions[bot]"
+        git config --global user.email "github-actions[bot]@users.noreply.github.com"
+        git add module.json
+        git commit -m "Bump version to v${NEW_VERSION}"
+        git tag "v${NEW_VERSION}"
+        git push origin main
+        git push origin "v${NEW_VERSION}"
+
+    - name: Zip Files
+      run: |
+        zip -r module.zip module.json scripts styles templates
+
+    - name: Create Release
+      uses: softprops/action-gh-release@v2
+      with:
+        tag_name: v${{ env.NEW_VERSION }}
+        files: |
+          module.json
+          module.zip
