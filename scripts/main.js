@@ -92,47 +92,68 @@ class RacingData {
 class GhostRenderer {
     static renderGhost(token) {
         const isRaceModeEnabled = game.settings.get(MODULE_ID, "raceModeEnabled");
-        if (!isRaceModeEnabled) {
-            // Optional: you can uncomment the log below if you want to see how often it fires
-            // console.log(`Chocobo Racing | GhostRenderer skipped: raceModeEnabled is false for ${token.name}`);
-            return;
-        }
-        
-        console.log(`Chocobo Racing | renderGhost called for token ${token.name}`);
+        if (!isRaceModeEnabled) return;
 
         const velocity = RacingData.getVelocity(token.document);
-        console.log(`Chocobo Racing | ${token.name} current velocity:`, velocity);
         
         if (velocity.x === 0 && velocity.y === 0) {
-            if (token._ghostGraphics) {
-                console.log(`Chocobo Racing | Clearing ghost for ${token.name} (velocity is 0)`);
-                token._ghostGraphics.clear();
-            }
+            if (token._ghostGraphics) token._ghostGraphics.clear();
             return;
         }
 
         if (!token._ghostGraphics) {
-            console.log(`Chocobo Racing | Creating new ghost PIXI.Graphics for ${token.name}`);
             token._ghostGraphics = new PIXI.Graphics();
             token._ghostGraphics.zIndex = -1;
             token.addChild(token._ghostGraphics);
             token.sortableChildren = true;
         }
 
-        const sizeX = canvas.grid.sizeX || canvas.grid.size; // fallback for older versions
+        const sizeX = canvas.grid.sizeX || canvas.grid.size;
         const sizeY = canvas.grid.sizeY || canvas.grid.size;
-        
         const dx = velocity.x * sizeX;
         const dy = velocity.y * sizeY;
         
-        console.log(`Chocobo Racing | Drawing ghost for ${token.name} at offset dx=${dx}, dy=${dy} (Grid Size: ${sizeX}x${sizeY})`);
-
         const g = token._ghostGraphics;
         g.clear();
-        g.lineStyle(2, 0x00FFFF, 0.8);
-        g.beginFill(0x00FFFF, 0.2);
-        g.drawRect(dx, dy, token.document.width * sizeX, token.document.height * sizeY); // In V12+, token.w/h can be unreliable before draw. Best to use document size.
+        // Remove old text children
+        g.removeChildren();
+
+        // Determine color based on the first non-GM owner
+        const ownerUser = game.users.find(u => !u.isGM && token.document.testUserPermission(u, "OWNER")) || game.user;
+        const colorHex = ownerUser.color || "#00FFFF";
+        const colorNumeric = foundry.utils.Color.from(colorHex).valueOf();
+
+        g.lineStyle(2, colorNumeric, 0.8);
+        g.beginFill(colorNumeric, 0.2);
+        g.drawRect(dx, dy, token.document.width * sizeX, token.document.height * sizeY);
         g.endFill();
+
+        // Draw line between rider and ghost
+        g.lineStyle(2, colorNumeric, 0.5);
+        g.moveTo(sizeX / 2, sizeY / 2); // Center of token
+        g.lineTo(dx + sizeX / 2, dy + sizeY / 2); // Center of ghost
+
+        // Check if this owner has multiple racers
+        const ownedTokens = canvas.tokens.placeables.filter(t => t.document.testUserPermission(ownerUser, "OWNER"));
+        if (ownedTokens.length > 1) {
+            const labelIndex = ownedTokens.indexOf(token);
+            const labelChar = String.fromCharCode(65 + Math.max(0, labelIndex)); // A, B, C...
+
+            // Label for Ghost
+            const textStyle = { fill: colorHex, fontSize: 32, stroke: 0x000000, strokeThickness: 4, fontWeight: 'bold' };
+            const ghostText = new PIXI.Text({text: labelChar, style: textStyle}); // V12/13 PIXI.Text options
+            // Fallback for V11 PIXI.Text if needed: new PIXI.Text(labelChar, textStyle)
+            const gText = new PIXI.Text(labelChar, textStyle);
+            gText.anchor.set(0.5);
+            gText.position.set(dx + (token.document.width * sizeX)/2, dy + (token.document.height * sizeY)/2);
+            g.addChild(gText);
+
+            // Label for Token
+            const tText = new PIXI.Text(labelChar, textStyle);
+            tText.anchor.set(0.5);
+            tText.position.set((token.document.width * sizeX)/2, (token.document.height * sizeY)/2);
+            g.addChild(tText);
+        }
     }
 }
 
