@@ -91,35 +91,47 @@ class RacingData {
 
 class GhostRenderer {
     static renderGhost(token) {
-        if (!game.settings.get(MODULE_ID, "raceModeEnabled")) return;
+        const isRaceModeEnabled = game.settings.get(MODULE_ID, "raceModeEnabled");
+        if (!isRaceModeEnabled) {
+            // Optional: you can uncomment the log below if you want to see how often it fires
+            // console.log(`Chocobo Racing | GhostRenderer skipped: raceModeEnabled is false for ${token.name}`);
+            return;
+        }
         
+        console.log(`Chocobo Racing | renderGhost called for token ${token.name}`);
+
         const velocity = RacingData.getVelocity(token.document);
+        console.log(`Chocobo Racing | ${token.name} current velocity:`, velocity);
         
         if (velocity.x === 0 && velocity.y === 0) {
             if (token._ghostGraphics) {
+                console.log(`Chocobo Racing | Clearing ghost for ${token.name} (velocity is 0)`);
                 token._ghostGraphics.clear();
             }
             return;
         }
 
         if (!token._ghostGraphics) {
+            console.log(`Chocobo Racing | Creating new ghost PIXI.Graphics for ${token.name}`);
             token._ghostGraphics = new PIXI.Graphics();
-            // Ensure ghost renders behind the actual token artwork if possible
             token._ghostGraphics.zIndex = -1;
             token.addChild(token._ghostGraphics);
             token.sortableChildren = true;
         }
 
-        const sizeX = canvas.grid.sizeX;
-        const sizeY = canvas.grid.sizeY;
+        const sizeX = canvas.grid.sizeX || canvas.grid.size; // fallback for older versions
+        const sizeY = canvas.grid.sizeY || canvas.grid.size;
+        
         const dx = velocity.x * sizeX;
         const dy = velocity.y * sizeY;
         
+        console.log(`Chocobo Racing | Drawing ghost for ${token.name} at offset dx=${dx}, dy=${dy} (Grid Size: ${sizeX}x${sizeY})`);
+
         const g = token._ghostGraphics;
         g.clear();
         g.lineStyle(2, 0x00FFFF, 0.8);
         g.beginFill(0x00FFFF, 0.2);
-        g.drawRect(dx, dy, token.w, token.h);
+        g.drawRect(dx, dy, token.document.width * sizeX, token.document.height * sizeY); // In V12+, token.w/h can be unreliable before draw. Best to use document size.
         g.endFill();
     }
 }
