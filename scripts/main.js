@@ -16,7 +16,7 @@ class RacingManager {
         });
 
         // Hook to inject Racing HUD button on tokens
-        Hooks.on("getRenderTokenHUD", RacingManager._onTokenHUD);
+        Hooks.on("renderTokenHUD", RacingManager._onTokenHUD);
     }
 
     static _onTokenHUD(hud, html, data) {
