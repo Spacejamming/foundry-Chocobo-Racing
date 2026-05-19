@@ -20,6 +20,8 @@ class RacingManager {
         
         // Hook to inject Token Config settings
         Hooks.on("renderTokenConfig", RacingManager._onRenderTokenConfig);
+        
+        this.registerGlobalApi();
     }
 
     static _onTokenHUD(hud, html, data) {
@@ -88,6 +90,166 @@ class RacingManager {
 
         $html.find('footer.sheet-footer').before(tab);
     }
+
+    static registerGlobalApi() {
+        const api = {
+            revealControlPlans: this.revealControlPlans.bind(this),
+            applyGhostResults: this.applyGhostResults.bind(this),
+            cleanupGhosts: this.cleanupGhosts.bind(this),
+            getRacePhase: this.getSceneRacePhase.bind(this),
+        };
+        if (typeof globalThis !== "undefined") {
+            globalThis.ChocoboRacing = api;
+        }
+        console.log("Chocobo Racing | Global API registered", api);
+    }
+
+    static _isGM() {
+        return game.user?.isGM;
+    }
+
+    static getScene() {
+        return game.scenes?.current;
+    }
+
+    static getSceneRacePhase(scene = this.getScene()) {
+        return scene?.getFlag(MODULE_ID, "racePhase") || "planning";
+    }
+
+    static async setSceneRacePhase(phase, scene = this.getScene()) {
+        if (!scene) return null;
+        return scene.setFlag(MODULE_ID, "racePhase", phase);
+    }
+
+    static async revealControlPlans() {
+        if (!this._isGM()) {
+            ui.notifications.warn("Only the GM can reveal racing control plans.");
+            return;
+        }
+
+        const scene = this.getScene();
+        if (!scene) return;
+
+        const plannedTokens = scene.tokens.filter(token => token.getFlag(MODULE_ID, "secretPlan"));
+        if (!plannedTokens.length) {
+            ui.notifications.info("No secret racing plans found for reveal.");
+            return;
+        }
+
+        await this.cleanupGhosts();
+
+        const gridSizeX = canvas.grid.sizeX || canvas.grid.size;
+        const gridSizeY = canvas.grid.sizeY || canvas.grid.size;
+        const ghostData = [];
+
+        for (const token of plannedTokens) {
+            const plan = token.getFlag(MODULE_ID, "secretPlan");
+            const currentVelocity = RacingData.getVelocity(token.document);
+            const adjustment = plan?.adjustment || { dx: 0, dy: 0 };
+
+            const ghostX = token.x + (adjustment.dx * gridSizeX);
+            const ghostY = token.y + (adjustment.dy * gridSizeY);
+            const velocity = {
+                x: (currentVelocity.x || 0) + (adjustment.dx || 0),
+                y: (currentVelocity.y || 0) + (adjustment.dy || 0)
+            };
+
+            const tokenData = foundry.utils.deepClone(token.document.toObject());
+            delete tokenData._id;
+            tokenData.x = ghostX;
+            tokenData.y = ghostY;
+            tokenData.alpha = 0.45;
+            tokenData.lockRotation = true;
+            tokenData.name = `Ghost: ${token.name}`;
+            tokenData.displayName = CONST.TOKEN_DISPLAY_MODES.OWNER_HOVER;
+            tokenData.flags = tokenData.flags || {};
+            tokenData.flags[MODULE_ID] = tokenData.flags[MODULE_ID] || {};
+            tokenData.flags[MODULE_ID].ghostOf = token.id;
+            tokenData.flags[MODULE_ID].isTemporaryGhost = true;
+            tokenData.flags[MODULE_ID].ghostPhase = "controlReveal";
+            tokenData.flags[MODULE_ID].previewVelocity = velocity;
+            ghostData.push(tokenData);
+        }
+
+        const createdGhosts = await scene.createEmbeddedDocuments("Token", ghostData);
+        for (const ghost of createdGhosts) {
+            const originalId = ghost.getFlag(MODULE_ID, "ghostOf");
+            const original = scene.tokens.get(originalId);
+            if (!original) continue;
+            await original.document.setFlag(MODULE_ID, "ghostTokenId", ghost.id);
+            await original.document.setFlag(MODULE_ID, "plannedVelocity", ghost.getFlag(MODULE_ID, "previewVelocity"));
+        }
+
+        await this.setSceneRacePhase("controlReveal");
+        ui.notifications.info("Control plans revealed. Ghost tokens have been created.");
+        ChatMessage.create({ content: `<p><strong>Chocobo Racing:</strong> Control movement has been revealed and ghost tokens are on the board.</p>` });
+    }
+
+    static async cleanupGhosts() {
+        const scene = this.getScene();
+        if (!scene) return;
+
+        const ghosts = scene.tokens.filter(token => token.getFlag(MODULE_ID, "isTemporaryGhost"));
+        if (!ghosts.length) {
+            await this.setSceneRacePhase("planning");
+            return;
+        }
+
+        const ghostIds = ghosts.map(token => token.id);
+        const originalIds = ghosts.map(token => token.getFlag(MODULE_ID, "ghostOf")).filter(Boolean);
+        await scene.deleteEmbeddedDocuments("Token", ghostIds);
+
+        for (const originalId of originalIds) {
+            const original = scene.tokens.get(originalId);
+            if (!original) continue;
+            await original.document.unsetFlag(MODULE_ID, "ghostTokenId");
+            await original.document.unsetFlag(MODULE_ID, "plannedVelocity");
+            await original.document.unsetFlag(MODULE_ID, "previewVelocity");
+        }
+
+        await this.setSceneRacePhase("planning");
+        ui.notifications.info("Temporary ghost tokens removed and race phase reset to planning.");
+    }
+
+    static async applyGhostResults() {
+        if (!this._isGM()) {
+            ui.notifications.warn("Only the GM can apply ghost results.");
+            return;
+        }
+
+        const scene = this.getScene();
+        if (!scene) return;
+
+        const ghosts = scene.tokens.filter(token => token.getFlag(MODULE_ID, "isTemporaryGhost"));
+        if (!ghosts.length) {
+            ui.notifications.info("No ghost tokens found to apply.");
+            return;
+        }
+
+        const gridSize = canvas.grid.sizeX || canvas.grid.size;
+        for (const ghost of ghosts) {
+            const originalId = ghost.getFlag(MODULE_ID, "ghostOf");
+            const original = scene.tokens.get(originalId);
+            if (!original) continue;
+
+            const dx = Math.round((ghost.x - original.x) / gridSize);
+            const dy = Math.round((ghost.y - original.y) / gridSize);
+
+            await original.document.update({ x: ghost.x, y: ghost.y });
+            await original.document.setFlag(MODULE_ID, "velocity", { x: dx, y: dy });
+            await original.document.unsetFlag(MODULE_ID, "secretPlan");
+            await original.document.unsetFlag(MODULE_ID, "ghostTokenId");
+            await original.document.unsetFlag(MODULE_ID, "plannedVelocity");
+            await original.document.unsetFlag(MODULE_ID, "previewVelocity");
+        }
+
+        const ghostIds = ghosts.map(token => token.id);
+        await scene.deleteEmbeddedDocuments("Token", ghostIds);
+        await this.setSceneRacePhase("complete");
+
+        ui.notifications.info("Ghost results applied: tokens moved and velocity updated.");
+        ChatMessage.create({ content: `<p><strong>Chocobo Racing:</strong> Ghost movement has been applied and the round is complete.</p>` });
+    }
 }
 
 class CanvasRacingHUD {
@@ -109,6 +271,7 @@ class CanvasRacingHUD {
         const stamina = RacingData.getStamina(token.document);
         const maxStamina = RacingData.getMaxStamina(token.document);
         const velocity = RacingData.getVelocity(token.document);
+        const existingPlan = token.document.getFlag(MODULE_ID, "secretPlan");
         
         const ownerUser = game.users.find(u => !u.isGM && token.document.testUserPermission(u, "OWNER")) || game.user;
         const colorHex = ownerUser.color || "#00FFFF";
@@ -119,7 +282,9 @@ class CanvasRacingHUD {
             riderName: riderName,
             playerColor: colorHex,
             stamina: stamina,
-            maxStamina: maxStamina
+            maxStamina: maxStamina,
+            selectedAction: existingPlan?.action || "action-none",
+            selectedAdjustment: existingPlan?.adjustment || { dx: 0, dy: 0 }
         };
 
         const renderFn = foundry.applications?.handlebars?.renderTemplate || renderTemplate;
@@ -147,6 +312,17 @@ class CanvasRacingHUD {
         const compassHUD = $('.chocobo-canvas-compass');
         const actionsHUD = $('.chocobo-canvas-actions');
         const self = this; // Capture 'this' for use in event handlers
+        this.plan = existingPlan || this.plan;
+        this.activeToken._previewAdjustment = this.plan.adjustment;
+        GhostRenderer.renderGhost(this.activeToken);
+
+        if (this.plan.action) {
+            actionsHUD.find(`.action-btn[data-action="${this.plan.action}"]`).addClass('active');
+        }
+        if (this.plan.adjustment) {
+            const adjustmentKey = this._formatAdjustmentKey(this.plan.adjustment);
+            compassHUD.find(`.compass-btn[data-action="${adjustmentKey}"]`).addClass('active');
+        }
         
         compassHUD.find('.compass-btn').click(ev => {
             compassHUD.find('.compass-btn').removeClass('active');
@@ -184,6 +360,7 @@ class CanvasRacingHUD {
         actionsHUD.find('.lock-in-btn').click(async (ev) => {
             ev.preventDefault();
             await self.activeToken.document.setFlag(MODULE_ID, "secretPlan", self.plan);
+            await self.activeToken.document.setFlag(MODULE_ID, "lastPlannedAt", Date.now());
             ui.notifications.info(`${riderName} locked in their plan!`);
             self.close();
         });
@@ -217,6 +394,21 @@ class CanvasRacingHUD {
         if (CanvasRacingHUD.activeToken) {
             CanvasRacingHUD.updatePosition();
         }
+    }
+
+    static _formatAdjustmentKey(adjustment) {
+        if (!adjustment) return "adjust-reset";
+        const { dx, dy } = adjustment;
+        if (dx === 0 && dy === 0) return "adjust-reset";
+        if (dx === -1 && dy === -1) return "adjust-nw";
+        if (dx === 0 && dy === -1) return "adjust-n";
+        if (dx === 1 && dy === -1) return "adjust-ne";
+        if (dx === -1 && dy === 0) return "adjust-w";
+        if (dx === 1 && dy === 0) return "adjust-e";
+        if (dx === -1 && dy === 1) return "adjust-sw";
+        if (dx === 0 && dy === 1) return "adjust-s";
+        if (dx === 1 && dy === 1) return "adjust-se";
+        return "adjust-reset";
     }
 
     // Note: now using interval-based updates instead of hook; kept for reference
@@ -369,6 +561,11 @@ class GhostRenderer {
             token.sortableChildren = true;
         }
 
+        if (token.document.getFlag(MODULE_ID, "isTemporaryGhost")) {
+            this.renderGhostTokenLabel(token);
+            return;
+        }
+
         const sizeX = canvas.grid.sizeX || canvas.grid.size;
         const sizeY = canvas.grid.sizeY || canvas.grid.size;
         
@@ -409,19 +606,47 @@ class GhostRenderer {
             const labelIndex = ownedTokens.indexOf(token);
             const labelChar = String.fromCharCode(65 + Math.max(0, labelIndex)); // A, B, C...
 
-            // Label for Ghost
             const textStyle = { fill: colorHex, fontSize: 32, stroke: 0x000000, strokeThickness: 4, fontWeight: 'bold' };
-            const ghostText = new PIXI.Text({text: labelChar, style: textStyle}); // V12/13 PIXI.Text options
             const gText = new PIXI.Text(labelChar, textStyle);
             gText.anchor.set(0.5);
             gText.position.set(px + (token.document.width * sizeX)/2, py + (token.document.height * sizeY)/2);
             g.addChild(gText);
 
-            // Label for Token
             const tText = new PIXI.Text(labelChar, textStyle);
             tText.anchor.set(0.5);
             tText.position.set((token.document.width * sizeX)/2, (token.document.height * sizeY)/2);
             g.addChild(tText);
+        }
+    }
+
+    static renderGhostTokenLabel(token) {
+        const ownerId = token.getFlag(MODULE_ID, "ghostOf");
+        if (!ownerId) return;
+
+        const original = canvas.tokens.get(ownerId);
+        if (!original) return;
+
+        const gridSize = canvas.grid.sizeX || canvas.grid.size;
+        const dx = Math.round((token.x - original.x) / gridSize);
+        const dy = Math.round((token.y - original.y) / gridSize);
+        const label = `Velocity: (${dx}, ${dy})`;
+
+        if (token._velocityText && token._velocityText.parent) {
+            token._velocityText.text = label;
+        } else {
+            const style = new PIXI.TextStyle({
+                fill: '#ffffff',
+                fontSize: 14,
+                stroke: '#000000',
+                strokeThickness: 3,
+                fontWeight: 'bold'
+            });
+            token._velocityText = new PIXI.Text(label, style);
+            token._velocityText.anchor.set(0.5, 1);
+            token._velocityText.position.set(token.w / 2, -8);
+            token._velocityText.zIndex = 1000;
+            token.sortableChildren = true;
+            token.addChild(token._velocityText);
         }
     }
 }
@@ -429,6 +654,17 @@ class GhostRenderer {
 Hooks.once("init", () => RacingManager.init());
 
 Hooks.on("refreshToken", (token) => {
-    // Only render ghosts for tokens we own so we can't see enemy secret plans
-    if (token.isOwner) GhostRenderer.renderGhost(token);
+    GhostRenderer.renderGhost(token);
+});
+
+Hooks.on("renderToken", (token) => {
+    GhostRenderer.renderGhost(token);
+});
+
+Hooks.on("updateToken", async (scene, tokenDoc, diff, options, userId) => {
+    const token = canvas.tokens.get(tokenDoc.id);
+    if (!token) return;
+    if (token.getFlag(MODULE_ID, "isTemporaryGhost")) {
+        GhostRenderer.renderGhost(token);
+    }
 });
