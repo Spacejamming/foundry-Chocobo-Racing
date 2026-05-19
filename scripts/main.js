@@ -63,7 +63,12 @@ class RacingManager {
         
         if (!nav.length) return;
 
-        nav.append(`<a class="item" data-tab="chocobo-racing"><i class="fas fa-flag-checkered"></i> Racing</a>`);
+        const $racingTab = $(`<a class="item" data-tab="chocobo-racing"><i class="fas fa-flag-checkered"></i> Racing</a>`);
+        nav.append($racingTab);
+        $racingTab.click(ev => {
+            ev.preventDefault();
+            app.activateTab("chocobo-racing");
+        });
 
         const riderId = app.document.getFlag(MODULE_ID, "riderId") || "";
         const maxStamina = app.document.getFlag(MODULE_ID, "maxStamina") || 5;
@@ -127,6 +132,13 @@ class RacingManager {
         return scene.setFlag(MODULE_ID, "racePhase", phase);
     }
 
+    /**
+     * GM macro entry point for revealing secret racing control plans.
+     *
+     * This method scans all scene tokens for a stored `secretPlan`,
+     * creates temporary desaturated ghost tokens at the computed destination,
+     * and links each ghost back to its original token.
+     */
     static async revealControlPlans() {
         if (!this._isGM()) {
             ui.notifications.warn("Only the GM can reveal racing control plans.");
@@ -148,10 +160,20 @@ class RacingManager {
         const gridSizeY = canvas.grid.sizeY || canvas.grid.size;
         const ghostData = [];
 
+        const actionLabels = {
+            "action-focus": "Focus",
+            "action-pivot": "Pivot",
+            "action-sabotage": "Sabotage",
+            "action-none": "No Action"
+        };
+
         for (const token of plannedTokens) {
             const plan = token.getFlag(MODULE_ID, "secretPlan");
             const currentVelocity = RacingData.getVelocity(token);
             const adjustment = plan?.adjustment || { dx: 0, dy: 0 };
+
+            const actionLabel = actionLabels[plan?.action] || (plan?.action ? plan.action.replace(/^action-/, "").replace(/-/g, " ") : "No Action");
+            ui.notifications.info(`${token.name} planned ${actionLabel}.`);
 
             const totalDx = (currentVelocity.x || 0) + (adjustment.dx || 0);
             const totalDy = (currentVelocity.y || 0) + (adjustment.dy || 0);
@@ -216,6 +238,12 @@ class RacingManager {
         ui.notifications.info("Temporary ghost tokens removed and race phase reset to planning.");
     }
 
+    /**
+     * GM macro entry point for finalizing a race round.
+     *
+     * This method takes every temporary ghost token, moves the original token to the
+     * ghost position, updates the token velocity, and removes ghost state.
+     */
     static async applyGhostResults() {
         if (!this._isGM()) {
             ui.notifications.warn("Only the GM can apply ghost results.");
