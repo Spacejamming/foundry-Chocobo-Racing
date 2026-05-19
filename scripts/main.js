@@ -67,7 +67,10 @@ class RacingManager {
         nav.append($racingTab);
         $racingTab.click(ev => {
             ev.preventDefault();
-            app.activateTab("chocobo-racing");
+            nav.find('a.item').removeClass('active');
+            $racingTab.addClass('active');
+            $html.find('.tab').removeClass('active');
+            $html.find('.tab[data-tab="chocobo-racing"]').addClass('active');
         });
 
         const riderId = app.document.getFlag(MODULE_ID, "riderId") || "";
@@ -174,12 +177,11 @@ class RacingManager {
 
             const actionLabel = actionLabels[plan?.action] || (plan?.action ? plan.action.replace(/^action-/, "").replace(/-/g, " ") : "No Action");
             ui.notifications.info(`${token.name} planned ${actionLabel}.`);
-
-            const totalDx = (currentVelocity.x || 0) + (adjustment.dx || 0);
-            const totalDy = (currentVelocity.y || 0) + (adjustment.dy || 0);
-            const ghostX = token.x + (totalDx * gridSizeX);
-            const ghostY = token.y + (totalDy * gridSizeY);
-            const velocity = { x: totalDx, y: totalDy };
+            currentVelocity.x = (currentVelocity.x || 0) + (adjustment.dx || 0);
+            currentVelocity.y = (currentVelocity.y || 0) + (adjustment.dy || 0);
+            const ghostX = token.x + (currentVelocity.x * gridSizeX);
+            const ghostY = token.y + (currentVelocity.y * gridSizeY);
+            const velocity = { x: currentVelocity.x, y: currentVelocity.y, total: Math.abs(currentVelocity.x) + Math.abs(currentVelocity.y) };
 
             const tokenData = foundry.utils.deepClone(token.toObject());
             delete tokenData._id;
