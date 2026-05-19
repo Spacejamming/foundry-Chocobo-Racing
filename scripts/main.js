@@ -144,7 +144,7 @@ class RacingManager {
 
         for (const token of plannedTokens) {
             const plan = token.getFlag(MODULE_ID, "secretPlan");
-            const currentVelocity = RacingData.getVelocity(token.document);
+            const currentVelocity = RacingData.getVelocity(token);
             const adjustment = plan?.adjustment || { dx: 0, dy: 0 };
 
             const ghostX = token.x + (adjustment.dx * gridSizeX);
@@ -154,7 +154,7 @@ class RacingManager {
                 y: (currentVelocity.y || 0) + (adjustment.dy || 0)
             };
 
-            const tokenData = foundry.utils.deepClone(token.document.toObject());
+            const tokenData = foundry.utils.deepClone(token.toObject());
             delete tokenData._id;
             tokenData.x = ghostX;
             tokenData.y = ghostY;
@@ -176,8 +176,8 @@ class RacingManager {
             const originalId = ghost.getFlag(MODULE_ID, "ghostOf");
             const original = scene.tokens.get(originalId);
             if (!original) continue;
-            await original.document.setFlag(MODULE_ID, "ghostTokenId", ghost.id);
-            await original.document.setFlag(MODULE_ID, "plannedVelocity", ghost.getFlag(MODULE_ID, "previewVelocity"));
+            await original.setFlag(MODULE_ID, "ghostTokenId", ghost.id);
+            await original.setFlag(MODULE_ID, "plannedVelocity", ghost.getFlag(MODULE_ID, "previewVelocity"));
         }
 
         await this.setSceneRacePhase("controlReveal");
@@ -202,9 +202,9 @@ class RacingManager {
         for (const originalId of originalIds) {
             const original = scene.tokens.get(originalId);
             if (!original) continue;
-            await original.document.unsetFlag(MODULE_ID, "ghostTokenId");
-            await original.document.unsetFlag(MODULE_ID, "plannedVelocity");
-            await original.document.unsetFlag(MODULE_ID, "previewVelocity");
+            await original.unsetFlag(MODULE_ID, "ghostTokenId");
+            await original.unsetFlag(MODULE_ID, "plannedVelocity");
+            await original.unsetFlag(MODULE_ID, "previewVelocity");
         }
 
         await this.setSceneRacePhase("planning");
@@ -235,12 +235,12 @@ class RacingManager {
             const dx = Math.round((ghost.x - original.x) / gridSize);
             const dy = Math.round((ghost.y - original.y) / gridSize);
 
-            await original.document.update({ x: ghost.x, y: ghost.y });
-            await original.document.setFlag(MODULE_ID, "velocity", { x: dx, y: dy });
-            await original.document.unsetFlag(MODULE_ID, "secretPlan");
-            await original.document.unsetFlag(MODULE_ID, "ghostTokenId");
-            await original.document.unsetFlag(MODULE_ID, "plannedVelocity");
-            await original.document.unsetFlag(MODULE_ID, "previewVelocity");
+            await original.update({ x: ghost.x, y: ghost.y });
+            await original.setFlag(MODULE_ID, "velocity", { x: dx, y: dy });
+            await original.unsetFlag(MODULE_ID, "secretPlan");
+            await original.unsetFlag(MODULE_ID, "ghostTokenId");
+            await original.unsetFlag(MODULE_ID, "plannedVelocity");
+            await original.unsetFlag(MODULE_ID, "previewVelocity");
         }
 
         const ghostIds = ghosts.map(token => token.id);
