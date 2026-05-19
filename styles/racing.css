@@ -38,64 +38,128 @@
 }
 
 /* Compass Grid */
-.chocobo-racing-hud .compass-grid {
+.chocobo-canvas-compass .compass-grid {
     display: grid;
-    grid-template-columns: repeat(3, 40px);
-    grid-template-rows: repeat(3, 40px);
-    gap: 5px;
-    justify-content: center;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    grid-template-rows: repeat(3, minmax(0, 1fr));
+    gap: 4px;
+    width: min(10rem, calc(var(--grid-size, 96px) * 0.9));
+    height: min(10rem, calc(var(--grid-size, 96px) * 0.9));
 }
 
-.chocobo-racing-hud .compass-btn {
-    width: 40px;
-    height: 40px;
+.chocobo-canvas-compass .compass-btn {
+    width: 100%;
+    height: 100%;
     border: 1px solid var(--color-border-light);
-    border-radius: 5px;
-    background: rgba(255, 255, 255, 0.1);
+    border-radius: 4px;
+    background: rgba(255, 255, 255, 0.12);
     cursor: pointer;
-    font-size: 1.2em;
+    font-size: 0.95em;
     display: flex;
     align-items: center;
     justify-content: center;
-    transition: all 0.2s;
+    transition: all 0.15s ease;
 }
 
-.chocobo-racing-hud .compass-btn:hover {
-    background: rgba(255, 255, 255, 0.3);
-    box-shadow: 0 0 5px var(--color-shadow-primary);
+.chocobo-canvas-compass .compass-btn:hover {
+    background: rgba(255, 255, 255, 0.25);
+    box-shadow: 0 0 6px rgba(255, 255, 255, 0.3);
 }
 
-.chocobo-racing-hud .compass-btn.active {
+.chocobo-canvas-compass .compass-btn.active {
     background: var(--color-bg-option);
     border-color: var(--color-border-highlight);
     color: var(--color-text-light-highlight);
     box-shadow: inset 0 0 5px rgba(0,0,0,0.5);
 }
 
-.chocobo-racing-hud .compass-center {
-    width: 40px;
-    height: 40px;
+.chocobo-canvas-compass .compass-reset {
+    background: rgba(0, 255, 255, 0.15);
+    color: #00ffff;
+}
+
+.chocobo-canvas-actions {
+    display: flex;
+    flex-direction: column;
+    align-items: stretch;
+    gap: 6px;
+    min-width: calc(var(--grid-size, 96px) * 1.2);
+    max-width: min(16rem, calc(var(--grid-size, 96px) * 1.8));
+    pointer-events: auto !important;
+    z-index: 1002 !important;
+    background: rgba(0, 0, 0, 0.85);
+    border: 2px solid var(--color-border-light);
+    border-radius: 7px;
+    padding: 8px;
+    transform: translateX(-50%);
+}
+
+.chocobo-canvas-actions .actions-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 6px;
+}
+
+.chocobo-canvas-actions .action-toggle-btn {
+    width: 28px;
+    height: 28px;
+    border: 1px solid var(--color-border-light);
+    border-radius: 4px;
+    background: rgba(255, 255, 255, 0.08);
+    color: white;
     display: flex;
     align-items: center;
     justify-content: center;
-    background: rgba(0, 255, 255, 0.2);
-    border-radius: 50%;
-    color: #00ffff;
-    border: 1px solid #00ffff;
+    cursor: pointer;
 }
 
-.chocobo-racing-hud .action-buttons {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 5px;
+.chocobo-canvas-actions .action-toggle-btn:hover {
+    background: rgba(255, 255, 255, 0.16);
 }
 
-.chocobo-racing-hud .action-btn {
-    flex: 1 1 45%;
-    padding: 5px;
+.chocobo-canvas-actions .action-panel {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 6px;
+}
+
+.chocobo-canvas-actions .action-panel.collapsed {
+    display: none;
+}
+
+.chocobo-canvas-actions .action-btn {
+    width: 100%;
+    padding: 8px 10px;
     border: 1px solid var(--color-border-light);
-    border-radius: 3px;
-    background: rgba(255, 255, 255, 0.1);
+    border-radius: 4px;
+    background: rgba(255, 255, 255, 0.08);
+    color: #fff;
+    font-size: 0.9em;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+}
+
+.chocobo-canvas-actions .action-btn.active {
+    background: var(--color-bg-option);
+    border-color: var(--color-border-highlight);
+}
+
+.chocobo-canvas-actions .lock-in-btn {
+    width: 100%;
+    padding: 10px;
+    background: #4caf50;
+    color: white;
+    font-weight: bold;
+    border: 2px solid #2e7d32;
+    border-radius: 5px;
+}
+
+.chocobo-canvas-actions .lock-in-btn:hover {
+    background: #45a049;
+    box-shadow: 0 0 10px #4caf50;
 }
 
 .chocobo-racing-hud .action-btn.active {

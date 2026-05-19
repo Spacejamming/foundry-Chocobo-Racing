@@ -1,27 +1,27 @@
 <!-- Compass Overlay (Rendered near Ghost) -->
-<div id="chocobo-hud-{{tokenId}}" class="chocobo-canvas-compass" style="position: fixed; transform: translate(-50%, -50%); padding: 10px; display: block; visibility: visible; pointer-events: auto;">
+<div id="chocobo-hud-{{tokenId}}" class="chocobo-canvas-compass" style="position: fixed; transform: translate(-50%, -50%); padding: 6px; display: block; visibility: visible; pointer-events: auto;">
     <div class="compass-grid">
         <button type="button" class="compass-btn" data-action="adjust-nw" title="Northwest"><i class="fas fa-arrow-up-left"></i></button>
         <button type="button" class="compass-btn" data-action="adjust-n" title="North"><i class="fas fa-arrow-up"></i></button>
         <button type="button" class="compass-btn" data-action="adjust-ne" title="Northeast"><i class="fas fa-arrow-up-right"></i></button>
         <button type="button" class="compass-btn" data-action="adjust-w" title="West"><i class="fas fa-arrow-left"></i></button>
-        <div class="compass-center" title="Ghost Original Destination"><i class="fas fa-ghost"></i></div>
+        <button type="button" class="compass-btn compass-reset" data-action="adjust-reset" title="Reset"><i class="fas fa-redo"></i></button>
         <button type="button" class="compass-btn" data-action="adjust-e" title="East"><i class="fas fa-arrow-right"></i></button>
         <button type="button" class="compass-btn" data-action="adjust-sw" title="Southwest"><i class="fas fa-arrow-down-left"></i></button>
         <button type="button" class="compass-btn" data-action="adjust-s" title="South"><i class="fas fa-arrow-down"></i></button>
         <button type="button" class="compass-btn" data-action="adjust-se" title="Southeast"><i class="fas fa-arrow-down-right"></i></button>
     </div>
-    <div style="text-align: center; margin-top: 5px;">
-        <button type="button" class="compass-btn reset-btn" data-action="adjust-reset" style="width: 100%;">Reset</button>
-    </div>
 </div>
 
 <!-- Actions Overlay (Rendered near Token) -->
-<div class="chocobo-canvas-actions" style="position: fixed; padding: 10px; display: block; visibility: visible; pointer-events: auto;">
-    <div class="hud-header" style="background-color: {{playerColor}}; color: #fff; padding: 5px; border-radius: 5px; margin-bottom: 5px; text-align: center; font-weight: bold; text-shadow: 1px 1px 2px #000;">
-        {{riderName}} ({{stamina}}/{{maxStamina}} STM)
+<div class="chocobo-canvas-actions" style="position: fixed; padding: 8px; display: block; visibility: visible; pointer-events: auto;">
+    <div class="actions-header">
+        <div class="hud-header" style="background-color: {{playerColor}}; color: #fff; padding: 5px 8px; border-radius: 5px; margin-bottom: 5px; text-align: center; font-weight: bold; text-shadow: 1px 1px 2px #000;">
+            {{riderName}} ({{stamina}}/{{maxStamina}} STM)
+        </div>
+        <button type="button" class="action-toggle-btn" title="Hide actions"><i class="fas fa-chevron-up"></i></button>
     </div>
-    <div class="action-buttons" style="display: flex; flex-direction: column; gap: 5px;">
+    <div class="action-panel">
         <button type="button" class="action-btn" data-action="action-focus"><i class="fas fa-eye"></i> Focus</button>
         <button type="button" class="action-btn" data-action="action-pivot"><i class="fas fa-sync"></i> Pivot</button>
         <button type="button" class="action-btn" data-action="action-challenge"><i class="fas fa-fist-raised"></i> Challenge</button>

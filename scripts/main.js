@@ -173,6 +173,14 @@ class CanvasRacingHUD {
             self.plan.action = ev.currentTarget.dataset.action;
         });
 
+        const actionPanel = actionsHUD.find('.action-panel');
+        const toggleBtn = actionsHUD.find('.action-toggle-btn');
+        toggleBtn.click(() => {
+            const collapsed = actionPanel.toggleClass('collapsed').hasClass('collapsed');
+            toggleBtn.html(`<i class="fas fa-chevron-${collapsed ? 'down' : 'up'}"></i>`);
+            toggleBtn.attr('title', collapsed ? 'Show actions' : 'Hide actions');
+        });
+
         actionsHUD.find('.lock-in-btn').click(async (ev) => {
             ev.preventDefault();
             await self.activeToken.document.setFlag(MODULE_ID, "secretPlan", self.plan);
@@ -240,16 +248,17 @@ class CanvasRacingHUD {
             console.log(`Token world pos: (${tokenX}, ${tokenY}), size: ${tokenW}x${tokenH}`);
             
             // Convert to viewport (screen) coordinates
-            const tokenWorldPos = { x: tokenX + tokenW, y: tokenY };
-            const tokenScreenCoords = canvas.clientCoordinatesFromCanvas(tokenWorldPos);
+            const tokenWorldCenter = { x: tokenX + tokenW / 2, y: tokenY };
+            const tokenScreenCoords = canvas.clientCoordinatesFromCanvas(tokenWorldCenter);
             
             console.log(`Token screen coords from canvas.clientCoordinatesFromCanvas: (${tokenScreenCoords.x}, ${tokenScreenCoords.y})`);
             
-            const actionsLeft = Math.round(tokenScreenCoords.x + 20);
-            const actionsTop = Math.round(tokenScreenCoords.y);
+            const actionsLeft = Math.round(tokenScreenCoords.x);
+            const desiredTop = Math.round(tokenScreenCoords.y - actionsHUD.outerHeight() - 10);
+            const actionsTop = desiredTop < 12 ? Math.round(tokenScreenCoords.y + 12) : desiredTop;
             
             actionsHUD.css({ left: actionsLeft, top: actionsTop });
-            console.log(`Actions positioned: left=${actionsLeft}, top=${actionsTop}`);
+            console.log(`Actions positioned: left=${actionsLeft}, top=${actionsTop} (desired ${desiredTop})`);
 
             // Compass goes over the ghost
             const velocity = RacingData.getVelocity(this.activeToken.document);
