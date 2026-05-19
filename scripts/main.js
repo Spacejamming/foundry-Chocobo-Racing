@@ -467,17 +467,13 @@ class CanvasRacingHUD {
             const ghostWorldX = tokenX + (dx * sizeX) + (tokenW / 2);
             const ghostWorldY = tokenY + (dy * sizeY) + (tokenH / 2);
             
-            console.log(`Ghost world pos: (${ghostWorldX}, ${ghostWorldY})`);
+
             
             const ghostScreenCoords = canvas.clientCoordinatesFromCanvas({ x: ghostWorldX, y: ghostWorldY });
-            
-            console.log(`Ghost screen coords: (${ghostScreenCoords.x}, ${ghostScreenCoords.y})`);
-            
             const compassLeft = Math.round(ghostScreenCoords.x);
             const compassTop = Math.round(ghostScreenCoords.y);
             
             compassHUD.css({ left: compassLeft, top: compassTop });
-            console.log(`Compass positioned: left=${compassLeft}, top=${compassTop}`);
         } catch (err) {
             console.error('Chocobo Racing | Error in updatePosition:', err);
         }
