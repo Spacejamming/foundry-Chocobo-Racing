@@ -601,7 +601,7 @@ class GhostRenderer {
         const g = token._ghostGraphics;
 
         if (token.document.getFlag(MODULE_ID, "isTemporaryGhost")) {
-            const originalId = token.getFlag(MODULE_ID, "ghostOf");
+            const originalId = token.document.getFlag(MODULE_ID, "ghostOf");
             const original = canvas.tokens.get(originalId);
             if (original) {
                 const originalCenter = {
@@ -680,7 +680,7 @@ class GhostRenderer {
     }
 
     static renderGhostTokenLabel(token) {
-        const ownerId = token.getFlag(MODULE_ID, "ghostOf");
+        const ownerId = token.document.getFlag(MODULE_ID, "ghostOf");
         if (!ownerId) return;
 
         const original = canvas.tokens.get(ownerId);
@@ -724,7 +724,7 @@ Hooks.on("renderToken", (token) => {
 Hooks.on("updateToken", async (scene, tokenDoc, diff, options, userId) => {
     const token = canvas.tokens.get(tokenDoc.id);
     if (!token) return;
-    if (token.getFlag(MODULE_ID, "isTemporaryGhost")) {
+    if (token.document.getFlag(MODULE_ID, "isTemporaryGhost")) {
         GhostRenderer.renderGhost(token);
     }
 });
