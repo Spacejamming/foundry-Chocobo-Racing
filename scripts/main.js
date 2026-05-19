@@ -21,6 +21,13 @@ class RacingManager {
         // Hook to inject Token Config settings
         Hooks.on("renderTokenConfig", RacingManager._onRenderTokenConfig);
         
+        // Close the HUD if the active token is deleted
+        Hooks.on("deleteToken", (scene, tokenDoc) => {
+            if (CanvasRacingHUD.activeToken?.id === tokenDoc.id) {
+                CanvasRacingHUD.close();
+            }
+        });
+        
         this.registerGlobalApi();
     }
 
@@ -54,7 +61,6 @@ class RacingManager {
         const $html = $(html);
         const nav = $html.find('.sheet-tabs').first();
         
-        console.log("Chocobo Racing | TokenConfig Nav Found:", nav.length);
         if (!nav.length) return;
 
         nav.append(`<a class="item" data-tab="chocobo-racing"><i class="fas fa-flag-checkered"></i> Racing</a>`);
@@ -130,7 +136,7 @@ class RacingManager {
         const scene = this.getScene();
         if (!scene) return;
 
-        const plannedTokens = scene.tokens.filter(token => token.getFlag(MODULE_ID, "secretPlan"));
+        const plannedTokens = scene.tokens.contents.filter(token => token.getFlag(MODULE_ID, "secretPlan"));
         if (!plannedTokens.length) {
             ui.notifications.info("No secret racing plans found for reveal.");
             return;
@@ -147,12 +153,11 @@ class RacingManager {
             const currentVelocity = RacingData.getVelocity(token);
             const adjustment = plan?.adjustment || { dx: 0, dy: 0 };
 
-            const ghostX = token.x + (adjustment.dx * gridSizeX);
-            const ghostY = token.y + (adjustment.dy * gridSizeY);
-            const velocity = {
-                x: (currentVelocity.x || 0) + (adjustment.dx || 0),
-                y: (currentVelocity.y || 0) + (adjustment.dy || 0)
-            };
+            const totalDx = (currentVelocity.x || 0) + (adjustment.dx || 0);
+            const totalDy = (currentVelocity.y || 0) + (adjustment.dy || 0);
+            const ghostX = token.x + (totalDx * gridSizeX);
+            const ghostY = token.y + (totalDy * gridSizeY);
+            const velocity = { x: totalDx, y: totalDy };
 
             const tokenData = foundry.utils.deepClone(token.toObject());
             delete tokenData._id;
@@ -189,7 +194,7 @@ class RacingManager {
         const scene = this.getScene();
         if (!scene) return;
 
-        const ghosts = scene.tokens.filter(token => token.getFlag(MODULE_ID, "isTemporaryGhost"));
+        const ghosts = scene.tokens.contents.filter(token => token.getFlag(MODULE_ID, "isTemporaryGhost"));
         if (!ghosts.length) {
             await this.setSceneRacePhase("planning");
             return;
@@ -220,7 +225,7 @@ class RacingManager {
         const scene = this.getScene();
         if (!scene) return;
 
-        const ghosts = scene.tokens.filter(token => token.getFlag(MODULE_ID, "isTemporaryGhost"));
+        const ghosts = scene.tokens.contents.filter(token => token.getFlag(MODULE_ID, "isTemporaryGhost"));
         if (!ghosts.length) {
             ui.notifications.info("No ghost tokens found to apply.");
             return;
@@ -421,6 +426,11 @@ class CanvasRacingHUD {
         if (!canvas || !canvas.ready) {
             return;
         }
+
+        if (!canvas.tokens.get(this.activeToken.id)) {
+            this.close();
+            return;
+        }
         
         try {
             // Get elements (now direct children of body, not nested)
@@ -437,20 +447,15 @@ class CanvasRacingHUD {
             const tokenW = this.activeToken.w;
             const tokenH = this.activeToken.h;
             
-            console.log(`Token world pos: (${tokenX}, ${tokenY}), size: ${tokenW}x${tokenH}`);
-            
             // Convert to viewport (screen) coordinates
             const tokenWorldCenter = { x: tokenX + tokenW / 2, y: tokenY };
             const tokenScreenCoords = canvas.clientCoordinatesFromCanvas(tokenWorldCenter);
-            
-            console.log(`Token screen coords from canvas.clientCoordinatesFromCanvas: (${tokenScreenCoords.x}, ${tokenScreenCoords.y})`);
             
             const actionsLeft = Math.round(tokenScreenCoords.x);
             const desiredTop = Math.round(tokenScreenCoords.y - actionsHUD.outerHeight() - 10);
             const actionsTop = desiredTop < 12 ? Math.round(tokenScreenCoords.y + 12) : desiredTop;
             
             actionsHUD.css({ left: actionsLeft, top: actionsTop });
-            console.log(`Actions positioned: left=${actionsLeft}, top=${actionsTop} (desired ${desiredTop})`);
 
             // Compass goes over the ghost
             const velocity = RacingData.getVelocity(this.activeToken.document);
@@ -466,8 +471,6 @@ class CanvasRacingHUD {
 
             const ghostWorldX = tokenX + (dx * sizeX) + (tokenW / 2);
             const ghostWorldY = tokenY + (dy * sizeY) + (tokenH / 2);
-            
-
             
             const ghostScreenCoords = canvas.clientCoordinatesFromCanvas({ x: ghostWorldX, y: ghostWorldY });
             const compassLeft = Math.round(ghostScreenCoords.x);
@@ -510,31 +513,41 @@ CanvasRacingHUD._panHookRegistered = false;
 CanvasRacingHUD._updateInterval = null;
 
 class RacingData {
+    static _tokenDocument(tokenDoc) {
+        return tokenDoc?.getFlag ? tokenDoc : tokenDoc?.document ? tokenDoc.document : null;
+    }
+
     static getRider(tokenDoc) {
-        const riderId = tokenDoc.getFlag(MODULE_ID, "riderId");
+        const doc = this._tokenDocument(tokenDoc);
+        const riderId = doc?.getFlag(MODULE_ID, "riderId");
         return riderId ? game.actors.get(riderId) : null;
     }
 
     static getVelocity(tokenDoc) {
-        return tokenDoc.getFlag(MODULE_ID, "velocity") || { x: 0, y: 0 };
+        const doc = this._tokenDocument(tokenDoc);
+        return doc?.getFlag(MODULE_ID, "velocity") || { x: 0, y: 0 };
     }
     
     static async setVelocity(tokenDoc, x, y) {
-        return tokenDoc.setFlag(MODULE_ID, "velocity", { x, y });
+        const doc = this._tokenDocument(tokenDoc);
+        return doc?.setFlag(MODULE_ID, "velocity", { x, y });
     }
     
     static getMaxStamina(tokenDoc) {
-        return tokenDoc.getFlag(MODULE_ID, "maxStamina") || 5;
+        const doc = this._tokenDocument(tokenDoc);
+        return doc?.getFlag(MODULE_ID, "maxStamina") || 5;
     }
     
     static getStamina(tokenDoc) {
-        const max = this.getMaxStamina(tokenDoc);
-        const current = tokenDoc.getFlag(MODULE_ID, "stamina");
+        const doc = this._tokenDocument(tokenDoc);
+        const max = this.getMaxStamina(doc);
+        const current = doc?.getFlag(MODULE_ID, "stamina");
         return current !== undefined ? current : max;
     }
     
     static async setStamina(tokenDoc, value) {
-        return tokenDoc.setFlag(MODULE_ID, "stamina", Math.max(0, value));
+        const doc = this._tokenDocument(tokenDoc);
+        return doc?.setFlag(MODULE_ID, "stamina", Math.max(0, value));
     }
 }
 
@@ -557,7 +570,31 @@ class GhostRenderer {
             token.sortableChildren = true;
         }
 
+        const g = token._ghostGraphics;
+
         if (token.document.getFlag(MODULE_ID, "isTemporaryGhost")) {
+            const originalId = token.getFlag(MODULE_ID, "ghostOf");
+            const original = canvas.tokens.get(originalId);
+            if (original) {
+                const originalCenter = {
+                    x: original.x - token.x + (original.w / 2),
+                    y: original.y - token.y + (original.h / 2)
+                };
+                const ghostCenter = {
+                    x: token.w / 2,
+                    y: token.h / 2
+                };
+                g.clear();
+                g.lineStyle(3, 0xffffff, 0.65);
+                g.moveTo(originalCenter.x, originalCenter.y);
+                g.lineTo(ghostCenter.x, ghostCenter.y);
+                g.lineStyle(0);
+
+                g.beginFill(0xffffff, 0.35);
+                g.drawCircle(ghostCenter.x, ghostCenter.y, 8);
+                g.drawCircle(originalCenter.x, originalCenter.y, 4);
+                g.endFill();
+            }
             this.renderGhostTokenLabel(token);
             return;
         }
@@ -576,7 +613,6 @@ class GhostRenderer {
         const px = dx * sizeX;
         const py = dy * sizeY;
         
-        const g = token._ghostGraphics;
         g.clear();
         // Remove old text children
         g.removeChildren();
