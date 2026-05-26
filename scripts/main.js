@@ -455,11 +455,15 @@ class CanvasRacingHUD {
                 return;
             }
             
+            // Get grid sizes
+            const sizeX = canvas.grid.sizeX || canvas.grid.size;
+            const sizeY = canvas.grid.sizeY || canvas.grid.size;
+            
             // Get token's world position and convert to viewport coordinates
             const tokenX = this.activeToken.x;
             const tokenY = this.activeToken.y;
-            const tokenW = this.activeToken.w;
-            const tokenH = this.activeToken.h;
+            const tokenW = (this.activeToken.w !== undefined) ? this.activeToken.w : (this.activeToken.document.width * sizeX);
+            const tokenH = (this.activeToken.h !== undefined) ? this.activeToken.h : (this.activeToken.document.height * sizeY);
             
             // Convert to viewport (screen) coordinates
             const tokenWorldCenter = { x: tokenX + tokenW / 2, y: tokenY };
@@ -684,9 +688,10 @@ class GhostRenderer {
                 strokeThickness: 3,
                 fontWeight: 'bold'
             };
+            const tokenW = (token.w !== undefined) ? token.w : (token.document.width * gridSize);
             token._velocityText = PIXI.VERSION.startsWith('8') ? new PIXI.Text({ text: label, style }) : new PIXI.Text(label, style);
             token._velocityText.anchor.set(0.5, 1);
-            token._velocityText.position.set(token.w / 2, -8);
+            token._velocityText.position.set(tokenW / 2, -8);
             token._velocityText.zIndex = 1000;
             token.sortableChildren = true;
             token.addChild(token._velocityText);
