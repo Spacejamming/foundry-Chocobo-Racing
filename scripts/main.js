@@ -179,7 +179,7 @@ class RacingManager {
             const plan = token.getFlag(MODULE_ID, "secretPlan");
             const currentVelocity = RacingData.getVelocity(token);
             const adjustment = plan?.adjustment || { dx: 0, dy: 0 };
-            //const actionLabel = actionLabels[plan?.action] || (plan?.action ? plan.action.replace(/^action-/, "").replace(/-/g, " ") : "No Action");
+            const actionLabel = actionLabels[plan?.action] || (plan?.action ? plan.action.replace(/^action-/, "").replace(/-/g, " ") : "No Action");
             ui.notifications.info(`${token.name} planned ${actionLabel}.`);
             currentVelocity.x = (currentVelocity.x || 0) + (adjustment.dx || 0);
             currentVelocity.y = (currentVelocity.y || 0) + (adjustment.dy || 0);
