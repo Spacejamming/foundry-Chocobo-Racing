@@ -59,7 +59,7 @@ class RacingManager {
 
     static _onRenderTokenConfig(app, html, data) {
         const $html = $(html);
-        const nav = $html.find('.sheet-tabs').first();
+        const nav = $html.find('nav.tabs, nav.sheet-tabs').first();
         
         if (!nav.length) return;
 
@@ -102,7 +102,12 @@ class RacingManager {
             </div>
         `);
 
-        $html.find('footer.sheet-footer').before(tab);
+        const contentContainer = $html.find('.window-content').length ? $html.find('.window-content') : $html.find('footer.sheet-footer').parent();
+        if ($html.find('footer.sheet-footer').length) {
+            $html.find('footer.sheet-footer').before(tab);
+        } else {
+            contentContainer.append(tab);
+        }
     }
 
     static registerGlobalApi() {
@@ -174,8 +179,7 @@ class RacingManager {
             const plan = token.getFlag(MODULE_ID, "secretPlan");
             const currentVelocity = RacingData.getVelocity(token);
             const adjustment = plan?.adjustment || { dx: 0, dy: 0 };
-
-            const actionLabel = actionLabels[plan?.action] || (plan?.action ? plan.action.replace(/^action-/, "").replace(/-/g, " ") : "No Action");
+            //const actionLabel = actionLabels[plan?.action] || (plan?.action ? plan.action.replace(/^action-/, "").replace(/-/g, " ") : "No Action");
             ui.notifications.info(`${token.name} planned ${actionLabel}.`);
             currentVelocity.x = (currentVelocity.x || 0) + (adjustment.dx || 0);
             currentVelocity.y = (currentVelocity.y || 0) + (adjustment.dy || 0);
@@ -325,31 +329,34 @@ class CanvasRacingHUD {
         const renderFn = foundry.applications?.handlebars?.renderTemplate || renderTemplate;
         const htmlString = await renderFn("modules/chocobo-racing/templates/racing-hud.hbs", templateData);
         
-        // Inject into body directly (bypass #hud entirely)
-        $('body').append(htmlString);
-        this.element = $('#chocobo-hud-' + token.id);
-
-        // Sanity check: ensure the injected element exists and is interactive
-        if (!this.element || !this.element.length) {
-            console.error(`Chocobo Racing | Failed to find injected HUD element for token ${token.id}`);
-        } else {
-            console.log(`Chocobo Racing | HUD element found and appended to body`);
-        }
-
-        // Log HUD injection for debugging
-        console.log(`Chocobo Racing | HUD opened for token ${token.id}`);
-        console.log(`Chocobo Racing | HUD element found: ${this.element.length > 0}`);
-        console.log(`Chocobo Racing | Active token: ${this.activeToken ? this.activeToken.id : 'null'}`);
+        // Inject into #hud directly
+        const $hud = $('#hud');
+        if (!$hud.length) return;
+        $hud.append(htmlString);
         
-        this.updatePosition();
-
-        // Bind events to compass and actions (now separate elements in DOM)
-        const compassHUD = $('.chocobo-canvas-compass');
-        const actionsHUD = $('.chocobo-canvas-actions');
-        const self = this; // Capture 'this' for use in event handlers
+        this.element = $('#chocobo-hud-' + token.id);
+        if (!this.element.length) {
+            console.error(`Chocobo Racing | Failed to find injected HUD element for token ${token.id}`);
+            return;
+        }
+        
         this.plan = existingPlan || this.plan;
         this.activeToken._previewAdjustment = this.plan.adjustment;
         GhostRenderer.renderGhost(this.activeToken);
+
+        this._bindListeners(riderName);
+        this.updatePosition();
+
+        if (!this._panHookRegistered) {
+            Hooks.on('canvasPan', this.onPan);
+            this._panHookRegistered = true;
+        }
+    }
+
+    static _bindListeners(riderName) {
+        const compassHUD = this.element.find('.chocobo-canvas-compass');
+        const actionsHUD = this.element.find('.chocobo-canvas-actions');
+        const self = this;
 
         if (this.plan.action) {
             actionsHUD.find(`.action-btn[data-action="${this.plan.action}"]`).addClass('active');
@@ -399,29 +406,6 @@ class CanvasRacingHUD {
             ui.notifications.info(`${riderName} locked in their plan!`);
             self.close();
         });
-
-        if (!this._panHookRegistered) {
-            console.log('Chocobo Racing | Registering canvas update hooks');
-            // Try multiple hook names for compatibility
-            Hooks.on('canvasPan', () => {
-                console.log('canvasPan hook');
-                CanvasRacingHUD.updatePosition();
-            });
-            Hooks.on('canvasPanned', () => {
-                console.log('canvasPanned hook');
-                CanvasRacingHUD.updatePosition();
-            });
-            this._panHookRegistered = true;
-        }
-        
-        // Start an interval to forcefully update position every 50ms (keeps up with any panning)
-        if (this._updateInterval) clearInterval(this._updateInterval);
-        console.log('Chocobo Racing | Starting position update interval');
-        this._updateInterval = setInterval(() => {
-            if (CanvasRacingHUD.activeToken && CanvasRacingHUD.element) {
-                CanvasRacingHUD.updatePosition();
-            }
-        }, 50);
     }
 
     static onPan() {
@@ -463,9 +447,9 @@ class CanvasRacingHUD {
         }
         
         try {
-            // Get elements (now direct children of body, not nested)
-            const actionsHUD = $('.chocobo-canvas-actions');
-            const compassHUD = $('.chocobo-canvas-compass');
+            if (!this.element) return;
+            const actionsHUD = this.element.find('.chocobo-canvas-actions');
+            const compassHUD = this.element.find('.chocobo-canvas-compass');
             
             if (!actionsHUD.length || !compassHUD.length) {
                 return;
@@ -513,15 +497,11 @@ class CanvasRacingHUD {
     }
 
     static close() {
-        if (this._updateInterval) {
-            clearInterval(this._updateInterval);
-            this._updateInterval = null;
-            console.log('Chocobo Racing | Cleared position update interval');
+        if (this._panHookRegistered) {
+            Hooks.off('canvasPan', this.onPan);
+            this._panHookRegistered = false;
         }
         
-        // Remove all HUD elements (compass, actions, wrapper)
-        $('.chocobo-canvas-compass').remove();
-        $('.chocobo-canvas-actions').remove();
         if (this.element) {
             this.element.remove();
             this.element = null;
@@ -540,7 +520,6 @@ CanvasRacingHUD.activeToken = null;
 CanvasRacingHUD.plan = { adjustment: { dx: 0, dy: 0 }, action: "action-none" };
 CanvasRacingHUD.element = null;
 CanvasRacingHUD._panHookRegistered = false;
-CanvasRacingHUD._updateInterval = null;
 
 class RacingData {
     static _tokenDocument(tokenDoc) {
@@ -652,6 +631,8 @@ class GhostRenderer {
         const colorHex = ownerUser.color || "#00FFFF";
         const colorNumeric = foundry.utils.Color.from(colorHex).valueOf();
 
+        // Render the ghost tile preview at the computed destination.
+        // This is a visual overlay, not the actual token itself.
         g.lineStyle(2, colorNumeric, 0.8);
         g.beginFill(colorNumeric, 0.2);
         g.drawRect(px, py, token.document.width * sizeX, token.document.height * sizeY);
@@ -669,12 +650,12 @@ class GhostRenderer {
             const labelChar = String.fromCharCode(65 + Math.max(0, labelIndex)); // A, B, C...
 
             const textStyle = { fill: colorHex, fontSize: 32, stroke: 0x000000, strokeThickness: 4, fontWeight: 'bold' };
-            const gText = new PIXI.Text(labelChar, textStyle);
+            const gText = PIXI.VERSION.startsWith('8') ? new PIXI.Text({ text: labelChar, style: textStyle }) : new PIXI.Text(labelChar, textStyle);
             gText.anchor.set(0.5);
             gText.position.set(px + (token.document.width * sizeX)/2, py + (token.document.height * sizeY)/2);
             g.addChild(gText);
 
-            const tText = new PIXI.Text(labelChar, textStyle);
+            const tText = PIXI.VERSION.startsWith('8') ? new PIXI.Text({ text: labelChar, style: textStyle }) : new PIXI.Text(labelChar, textStyle);
             tText.anchor.set(0.5);
             tText.position.set((token.document.width * sizeX)/2, (token.document.height * sizeY)/2);
             g.addChild(tText);
@@ -696,14 +677,14 @@ class GhostRenderer {
         if (token._velocityText && token._velocityText.parent) {
             token._velocityText.text = label;
         } else {
-            const style = new PIXI.TextStyle({
+            const style = {
                 fill: '#ffffff',
                 fontSize: 14,
                 stroke: '#000000',
                 strokeThickness: 3,
                 fontWeight: 'bold'
-            });
-            token._velocityText = new PIXI.Text(label, style);
+            };
+            token._velocityText = PIXI.VERSION.startsWith('8') ? new PIXI.Text({ text: label, style }) : new PIXI.Text(label, style);
             token._velocityText.anchor.set(0.5, 1);
             token._velocityText.position.set(token.w / 2, -8);
             token._velocityText.zIndex = 1000;
