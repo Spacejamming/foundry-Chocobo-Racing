@@ -1,6 +1,6 @@
 {
   "name": "chocobo-racing",
-  "version": "3.0.2",
+  "version": "3.0.3",
   "description": "",
   "main": "update-version.js",
   "scripts": {
