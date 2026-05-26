@@ -477,8 +477,6 @@ class CanvasRacingHUD {
 
             // Compass goes over the ghost
             const velocity = RacingData.getVelocity(this.activeToken.document);
-            const sizeX = canvas.grid.sizeX || canvas.grid.size;
-            const sizeY = canvas.grid.sizeY || canvas.grid.size;
             
             let dx = velocity.x;
             let dy = velocity.y;
