@@ -4,9 +4,9 @@
   "description": "A minigame module automating Vector Racing mechanics for DnD5e, featuring secret planning phases, momentum physics, and region-based track features.",
   "version": "3.0.0",
   "compatibility": {
-    "minimum": "13",
-    "verified": "13",
-    "maximum": "13"
+    "minimum": "12",
+    "verified": "14",
+    "maximum": "14"
   },
   "authors": [
     {
